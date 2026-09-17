@@ -1,0 +1,16 @@
+2026-09-17T21:06:33.257Z $ git clone "https://github.com/dizziedbliss/letters.git"
+
+2026-09-17T21:06:33.344Z $ git remote set-url origin "https://github.com/dizziedbliss/letters.git"
+
+2026-09-17T21:06:33.686Z $ git switch -c "skillissues/issue-1"
+
+2026-09-17T21:06:33.773Z $ git status --short --branch
+## skillissues/issue-1
+?? .skillissues/
+2026-09-17T21:06:49.527Z $ git switch -c "skillissues/issue-1"
+fatal: a branch named 'skillissues/issue-1' already exists
+2026-09-17T21:06:49.617Z $ git switch "skillissues/issue-1"
+
+2026-09-17T21:07:25.906Z $ git status --porcelain
+M README.md
+?? .skillissues/
