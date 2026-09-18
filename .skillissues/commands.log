@@ -73,3 +73,26 @@ M	.skillissues/commands.log
 Your branch is up to date with 'origin/skillissues/issue-1'.
 2026-09-18T01:48:36.874Z $ git status --porcelain
 M .skillissues/commands.log
+2026-09-18T01:48:36.960Z $ git add .
+
+2026-09-18T01:48:37.121Z $ git commit -m "Fix issue #1: beginnner"
+[skillissues/issue-1 3c6cd76] Fix issue #1: beginnner
+ 1 file changed, 16 insertions(+)
+2026-09-18T01:48:37.211Z $ git remote get-url origin
+https://github.com/dizziedbliss/letters.git
+2026-09-18T01:48:39.543Z $ git push --set-upstream origin "skillissues/issue-1"
+branch 'skillissues/issue-1' set up to track 'origin/skillissues/issue-1'.
+2026-09-18T01:55:19.953Z $ git remote set-url origin "https://github.com/dizziedbliss/letters.git"
+
+2026-09-18T01:55:20.039Z $ git switch -c "skillissues/issue-2"
+
+2026-09-18T01:55:20.112Z $ git status --short --branch
+## skillissues/issue-2
+ M .skillissues/commands.log
+2026-09-18T01:55:22.827Z $ git switch -c "skillissues/issue-2"
+fatal: a branch named 'skillissues/issue-2' already exists
+2026-09-18T01:55:22.918Z $ git switch "skillissues/issue-2"
+M	.skillissues/commands.log
+2026-09-18T01:55:43.970Z $ git status --porcelain
+M .skillissues/commands.log
+ M README.md
