@@ -1,0 +1,76 @@
+/* ==========================================================================
+   THEME PRESETS (Tailwind CSS v4 Configuration)
+   Change fonts, font sizes, colors, and layout presets all in this single file.
+   ========================================================================== */
+
+/* 1. Tailwind v4 Theme Tokens */
+@theme {
+  /* --- FONT FAMILIES --- */
+  --font-outfit: "Outfit", sans-serif;
+  --font-cardo: "Cardo", serif;
+
+  /* Semantic Font Aliases */
+  --font-heading: var(--font-outfit);
+  --font-body: var(--font-cardo);
+  --font-serif: var(--font-cardo);
+
+  /* --- FONT SIZES --- */
+  --text-hero: 54px;
+  --text-hero-sm: 42px;
+  --text-subtitle: 23px;
+  --text-subtitle-sm: 18px;
+  --text-input: 19px;
+  --text-input-sm: 16px;
+
+  /* --- BRAND COLORS --- */
+  --color-brand-purple: #6100D8;
+  --color-brand-purple-hover: #7814f0;
+  --color-brand-cyan: #00D8FF;
+  --color-brand-black: #000000;
+  --color-brand-white: #ffffff;
+  --color-tile-border: rgba(0, 0, 0, 0.20);
+
+  /* --- THEME COLORS --- */
+  --color-primary: #000000;
+  --color-secondary: #6100D8;
+  --color-accent: #00D8FF;
+}
+
+/* 2. Helper Classes for Direct Font Usage */
+.font-outfit {
+  font-family: var(--font-outfit);
+  font-optical-sizing: auto;
+}
+
+.font-cardo {
+  font-family: var(--font-cardo);
+}
+
+.cardo-regular {
+  font-family: "Cardo", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.cardo-bold {
+  font-family: "Cardo", serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.cardo-regular-italic {
+  font-family: "Cardo", serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* 3. Shake Animation for Invalid Passcode */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+.animate-shake {
+  animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
