@@ -22,9 +22,9 @@ export const letters = {
   get: async (id) =>
     unwrap(await supabase.from('letters').select(COLS).eq('id', id).maybeSingle()),
 
-  // Random letter; pass excludeId so a shuffle doesn't repeat the one on screen
-  random: async (excludeId) => {
-    const skip = (q) => (excludeId ? q.neq('id', excludeId) : q);
+  // Random letter, skipping any ids in excludeIds (the ones she's already read)
+  random: async (excludeIds = []) => {
+    const skip = (q) => (excludeIds.length ? q.not('id', 'in', `(${excludeIds.join(',')})`) : q);
     const { count, error } = await skip(
       supabase.from('letters').select('id', { count: 'exact', head: true })
     );

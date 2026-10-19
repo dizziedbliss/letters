@@ -55,10 +55,10 @@ export async function currentRole(): Promise<Role | null> {
   }
 }
 
-/** Reader endpoints for her page; `exclude` avoids repeating the current letter. */
+/** Reader endpoints for her page; `exclude` skips letters she's already read. */
 export const readerApi = {
-  random: (exclude?: number) =>
-    request<Letter>(`/letters/random${exclude ? `?exclude=${exclude}` : ''}`),
+  random: (exclude: number[] = []) =>
+    request<Letter>(`/letters/random${exclude.length ? `?exclude=${exclude.join(',')}` : ''}`),
 };
 
 export const adminApi = {

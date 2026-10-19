@@ -53,9 +53,6 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
                 </p>
               </div>
             )}
-            {status === 'empty' && (
-              <p className="font-body italic text-white/60 text-lg">no letters yet... check back soon :&lt;</p>
-            )}
             {status === 'error' && (
               <p className="font-body italic text-rose-300 text-lg">couldn't fetch a letter, try again?</p>
             )}
@@ -66,9 +63,13 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
             type="button"
             onClick={next}
             disabled={status === 'loading'}
-            className="inline-flex items-center justify-center px-6 py-2 rounded-full bg-brand-cyan text-black font-body text-base sm:text-lg font-semibold tracking-wide transition-all duration-200 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,216,255,0.6)] active:scale-95 disabled:opacity-60 disabled:hover:scale-100 cursor-pointer"
+            className={`inline-flex items-center justify-center px-6 py-2 rounded-full font-body text-base sm:text-lg font-semibold tracking-wide transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-60 disabled:hover:scale-100 cursor-pointer ${
+              status === 'empty'
+                ? 'bg-rose-500 text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.6)]'
+                : 'bg-brand-cyan text-black hover:shadow-[0_0_20px_rgba(0,216,255,0.6)]'
+            }`}
           >
-            {status === 'loading' ? '...' : 'more?'}
+            {status === 'loading' ? '...' : status === 'empty' ? 'uhm sorry- me still writing down- sabar karo' : 'more?'}
           </button>
         </div>
 

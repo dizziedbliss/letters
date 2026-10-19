@@ -88,10 +88,14 @@ app.delete('/api/admin/letters/:id', requireAdmin, async (req, res) => {
 // ---- reader endpoints (her page) ------------------------------------------
 app.get('/api/letters', requireReader, async (_req, res) => res.json(await letters.all()));
 
-// ?exclude=<id> avoids repeating the letter she's currently reading
+// ?exclude=1,2,3 skips letters she's already read; 404 once she's seen them all
 app.get('/api/letters/random', requireReader, async (req, res) => {
-  const exclude = Number(req.query.exclude);
-  const letter = await letters.random(Number.isInteger(exclude) && exclude > 0 ? exclude : undefined);
+  const exclude = String(req.query.exclude ?? '')
+    .split(',')
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, 1000);
+  const letter = await letters.random(exclude);
   letter ? res.json(letter) : res.status(404).json({ error: 'no letters' });
 });
 
