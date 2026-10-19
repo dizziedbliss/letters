@@ -1,0 +1,15 @@
+{
+  "name": "letters",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:api": "node --watch --env-file=.env backend/src/server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0"
+  },
+  "engines": { "node": ">=20" }
+}
