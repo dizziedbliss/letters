@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { letters } from './db.js';
-import { COOKIE, MAX_AGE_MS, checkPassword, issueToken, verifyToken, readCookie } from './session.js';
+import { COOKIE, MAX_AGE_MS, roleForCode, issueToken, verifyToken, readCookie } from './session.js';
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -12,8 +12,16 @@ app.use(express.json({ limit: '1mb' }));
 
 const cookieOpts = { httpOnly: true, sameSite: 'lax', secure: isProd, path: '/' };
 
-const requireAdmin = (req, res, next) =>
-  verifyToken(readCookie(req, COOKIE)) ? next() : res.status(401).json({ error: 'unauthorized' });
+const roleOf = (req) => verifyToken(readCookie(req, COOKIE));
+
+const requireRole = (allowed) => (req, res, next) => {
+  const role = roleOf(req);
+  if (!role) return res.status(401).json({ error: 'unauthorized' });
+  if (!allowed.includes(role)) return res.status(403).json({ error: 'forbidden' });
+  next();
+};
+const requireAdmin = requireRole(['admin']);
+const requireReader = requireRole(['reader', 'admin']);
 
 // ---- auth -----------------------------------------------------------------
 const loginLimiter = rateLimit({
@@ -24,21 +32,23 @@ const loginLimiter = rateLimit({
   message: { error: 'too many attempts, try again later' },
 });
 
-app.post('/api/admin/login', loginLimiter, (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   const { code } = req.body ?? {};
-  if (typeof code !== 'string' || !checkPassword(code.trim())) {
-    return res.status(401).json({ error: 'invalid' });
-  }
-  res.cookie(COOKIE, issueToken(), { ...cookieOpts, maxAge: MAX_AGE_MS });
-  res.json({ ok: true });
+  const role = typeof code === 'string' && code.trim() ? roleForCode(code.trim()) : null;
+  if (!role) return res.status(401).json({ error: 'invalid' });
+  res.cookie(COOKIE, issueToken(role), { ...cookieOpts, maxAge: MAX_AGE_MS });
+  res.json({ role });
 });
 
-app.post('/api/admin/logout', (_req, res) => {
+app.post('/api/logout', (_req, res) => {
   res.clearCookie(COOKIE, cookieOpts);
   res.json({ ok: true });
 });
 
-app.get('/api/admin/me', requireAdmin, (_req, res) => res.json({ ok: true }));
+app.get('/api/me', (req, res) => {
+  const role = roleOf(req);
+  role ? res.json({ role }) : res.status(401).json({ error: 'unauthorized' });
+});
 
 // ---- admin letters CRUD ---------------------------------------------------
 const parseLetter = (body) => {
@@ -75,14 +85,21 @@ app.delete('/api/admin/letters/:id', requireAdmin, async (req, res) => {
   (await letters.remove(id)) ? res.json({ ok: true }) : res.status(404).json({ error: 'not found' });
 });
 
-// ---- reader endpoints (her page) -- TODO ----------------------------------
-// Stubbed on purpose: her gate is currently a client-side check only, so serving
-// letters here would make them readable by anyone. Add real auth for her first,
-// then use letters.all() / letters.random() / letters.get(id).
-const notYet = (_req, res) => res.status(501).json({ error: 'not implemented yet' });
-app.get('/api/letters', notYet);
-app.get('/api/letters/random', notYet);
-app.get('/api/letters/:id', notYet);
+// ---- reader endpoints (her page) ------------------------------------------
+app.get('/api/letters', requireReader, async (_req, res) => res.json(await letters.all()));
+
+// ?exclude=<id> avoids repeating the letter she's currently reading
+app.get('/api/letters/random', requireReader, async (req, res) => {
+  const exclude = Number(req.query.exclude);
+  const letter = await letters.random(Number.isInteger(exclude) && exclude > 0 ? exclude : undefined);
+  letter ? res.json(letter) : res.status(404).json({ error: 'no letters' });
+});
+
+app.get('/api/letters/:id', requireReader, async (req, res) => {
+  const id = parseId(req);
+  const letter = id ? await letters.get(id) : null;
+  letter ? res.json(letter) : res.status(404).json({ error: 'not found' });
+});
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not found' }));
 

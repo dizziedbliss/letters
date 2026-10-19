@@ -29,25 +29,37 @@ export class ApiError extends Error {
   }
 }
 
-export async function adminLogin(code: string): Promise<boolean> {
+export type Role = 'admin' | 'reader';
+
+/** Returns the role the code unlocks, or null if it's wrong. */
+export async function login(code: string): Promise<Role | null> {
   try {
-    await request('/admin/login', { method: 'POST', body: JSON.stringify({ code }) });
-    return true;
+    const { role } = await request<{ role: Role }>('/login', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    return role;
   } catch {
-    return false;
+    return null;
   }
 }
 
-export const adminLogout = () => request('/admin/logout', { method: 'POST' });
+export const logout = () => request('/logout', { method: 'POST' });
 
-export async function isAdmin(): Promise<boolean> {
+/** Current session's role, or null when signed out. */
+export async function currentRole(): Promise<Role | null> {
   try {
-    await request('/admin/me');
-    return true;
+    return (await request<{ role: Role }>('/me')).role;
   } catch {
-    return false;
+    return null;
   }
 }
+
+/** Reader endpoints for her page; `exclude` avoids repeating the current letter. */
+export const readerApi = {
+  random: (exclude?: number) =>
+    request<Letter>(`/letters/random${exclude ? `?exclude=${exclude}` : ''}`),
+};
 
 export const adminApi = {
   list: () => request<Letter[]>('/admin/letters'),

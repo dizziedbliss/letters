@@ -22,14 +22,16 @@ export const letters = {
   get: async (id) =>
     unwrap(await supabase.from('letters').select(COLS).eq('id', id).maybeSingle()),
 
-  random: async () => {
-    const { count, error } = await supabase
-      .from('letters')
-      .select('id', { count: 'exact', head: true });
+  // Random letter; pass excludeId so a shuffle doesn't repeat the one on screen
+  random: async (excludeId) => {
+    const skip = (q) => (excludeId ? q.neq('id', excludeId) : q);
+    const { count, error } = await skip(
+      supabase.from('letters').select('id', { count: 'exact', head: true })
+    );
     if (error) throw error;
     if (!count) return null;
     const offset = Math.floor(Math.random() * count);
-    const rows = unwrap(await supabase.from('letters').select(COLS).order('id').range(offset, offset));
+    const rows = unwrap(await skip(supabase.from('letters').select(COLS)).order('id').range(offset, offset));
     return rows[0] ?? null;
   },
 

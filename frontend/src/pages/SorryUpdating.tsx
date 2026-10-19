@@ -18,7 +18,7 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-screen bg-[#151515] text-white flex items-center justify-center p-6 sm:p-12 overflow-x-hidden selection:bg-brand-cyan selection:text-black">
+    <div className="relative w-full min-h-dvh py-8 bg-[#151515] text-white flex items-center justify-center p-6 sm:p-12 overflow-x-hidden selection:bg-brand-cyan selection:text-black">
       {/* Back button */}
       <button
         type="button"
@@ -33,7 +33,7 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
       <div className="w-full max-w-[960px] flex flex-col md:flex-row items-center md:items-end justify-between gap-10 md:gap-14 my-auto">
         
         {/* Left Column: Heading, Subtitle & Action */}
-        <div className="flex-1 flex flex-col items-start text-left max-w-[580px]">
+        <div className="flex-1 flex flex-col items-start text-left max-w-[580px] max-w-full">
           {/* Main Title: "Hello, Saumiiiiii" */}
           <h1 className="text-4xl sm:text-5xl md:text-[52px] font-normal tracking-tight text-white mb-8 leading-tight">
             <span className="font-heading font-medium">Hello, </span>
@@ -45,7 +45,7 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
             <p>
               This thing is currently under construction lol, apparently the
               owner of this website is currently doing something totally
-              useless, uhm please forgive him... since he has done this much-
+              useless, uhm please forgive him... since he has done this much—
               he’ll be updating this soon.
             </p>
             <p>
@@ -71,7 +71,7 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
           <img
             src={charactersImg}
             alt="Illustration"
-            className="w-[220px] sm:w-[260px] md:w-[290px] h-auto object-contain select-none pointer-events-none drop-shadow-md"
+            className="w-[170px] sm:w-[220px] md:w-[280px] h-auto object-contain select-none pointer-events-none drop-shadow-md"
           />
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminApi, adminLogout, ApiError, type Letter } from '../utils/api';
+import { adminApi, logout as apiLogout, ApiError, type Letter } from '../utils/api';
 
 type Draft = { id: number | null; title: string; body: string };
 
@@ -108,7 +108,7 @@ export const AdminPage: React.FC = () => {
 
   const logout = async () => {
     if (!confirmDiscard()) return;
-    await adminLogout().catch(() => {});
+    await apiLogout().catch(() => {});
     navigate('/', { replace: true });
   };
 

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { loginWithCode } from '../../utils/auth';
-import { adminLogin } from '../../utils/api';
+import { login } from '../../utils/api';
 
 interface SecretCodeInputProps {
   onUnlock?: (code: string, role: 'guest' | 'admin') => void;
@@ -30,17 +29,12 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
       return;
     }
 
-    if (loginWithCode(trimmed)) {
-      succeed(trimmed, 'guest');
-      return;
-    }
-
     setIsChecking(true);
-    const isAdmin = await adminLogin(trimmed);
+    const role = await login(trimmed);
     setIsChecking(false);
 
-    if (isAdmin) {
-      succeed(trimmed, 'admin');
+    if (role) {
+      succeed(trimmed, role === 'admin' ? 'admin' : 'guest');
     } else {
       setError("you're not my special one, please...");
       triggerShake();
