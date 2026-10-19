@@ -4,7 +4,7 @@ import { HeroContent } from '../components/landing/HeroContent';
 import { SecretCodeInput } from '../components/landing/SecretCodeInput';
 
 interface LandingPageProps {
-  onUnlock?: (code: string) => void;
+  onUnlock?: (code: string, role: 'guest' | 'admin') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onUnlock }) => {

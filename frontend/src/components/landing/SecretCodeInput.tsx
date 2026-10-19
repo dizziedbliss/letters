@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { loginWithCode } from '../../utils/auth';
+import { adminLogin } from '../../utils/api';
 
 interface SecretCodeInputProps {
-  onUnlock?: (code: string) => void;
+  onUnlock?: (code: string, role: 'guest' | 'admin') => void;
 }
 
 export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) => {
@@ -10,10 +11,18 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
   const [error, setError] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const succeed = (value: string, role: 'guest' | 'admin') => {
+    setError(null);
+    setIsSuccess(true);
+    setTimeout(() => onUnlock?.(value, role), 350);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = code.trim();
+    if (isChecking || isSuccess) return;
 
     if (!trimmed) {
       setError('Our Secret...? :<');
@@ -21,16 +30,17 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
       return;
     }
 
-    const success = loginWithCode(trimmed);
+    if (loginWithCode(trimmed)) {
+      succeed(trimmed, 'guest');
+      return;
+    }
 
-    if (success) {
-      setError(null);
-      setIsSuccess(true);
-      setTimeout(() => {
-        if (onUnlock) {
-          onUnlock(trimmed);
-        }
-      }, 350);
+    setIsChecking(true);
+    const isAdmin = await adminLogin(trimmed);
+    setIsChecking(false);
+
+    if (isAdmin) {
+      succeed(trimmed, 'admin');
     } else {
       setError("you're not my special one, please...");
       triggerShake();
@@ -53,6 +63,7 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
         <input
           type="text"
           value={code}
+          readOnly={isChecking}
           onChange={(e) => {
             setCode(e.target.value);
             if (error) setError(null);

@@ -4,13 +4,14 @@ import LandingPage from './pages/LandingPage'
 import SorryUpdating from './pages/SorryUpdating'
 import LettersPage from './pages/LettersPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
+import AdminRoute from './components/common/AdminRoute'
+import AdminPage from './pages/AdminPage'
 
 function App() {
   const navigate = useNavigate()
 
-  const handleUnlock = (code: string) => {
-    console.log('Secret code unlocked:', code)
-    navigate('/letters')
+  const handleUnlock = (_code: string, role: 'guest' | 'admin') => {
+    navigate(role === 'admin' ? '/admin' : '/letters')
   }
 
   return (
@@ -22,6 +23,14 @@ function App() {
           <ProtectedRoute>
             <SorryUpdating />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
         }
       />
       <Route
