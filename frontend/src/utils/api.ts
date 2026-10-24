@@ -124,6 +124,8 @@ export interface OpenedLetter {
   banner: Banner | null;
   look: LetterLook | null;
   openedAt: string;
+  /** Set when the writer changed it after sending */
+  editedAt: string | null;
 }
 
 /** Thrown when the database refuses to open a letter yet. */
@@ -146,7 +148,7 @@ export async function openLetter(id: number): Promise<OpenedLetter> {
     throw error;
   }
   const row = (data as Record<string, never>[])[0];
-  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], banner: row.banner ?? null, look: row.look ?? null, openedAt: row.opened_at };
+  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], banner: row.banner ?? null, look: row.look ?? null, openedAt: row.opened_at, editedAt: row.edited_at ?? null };
 }
 
 /** id -> display name for the two accounts. */
@@ -268,10 +270,12 @@ export interface MyLetter {
   /** Optional custom push notification text (0010); empty = the rotating defaults. */
   notifyTitle: string | null;
   notifyBody: string | null;
+  /** Changed after it was sent (0012); the reader sees "edited" */
+  editedAt: string | null;
 }
 
 const MY_COLS =
-  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at, publishedAt:published_at, notifyTitle:notify_title, notifyBody:notify_body';
+  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at, publishedAt:published_at, notifyTitle:notify_title, notifyBody:notify_body, editedAt:edited_at';
 
 type MetaPatch = Partial<Pick<MyLetter, 'title' | 'section' | 'sealed' | 'greeting' | 'rule' | 'groupId' | 'notifyTitle' | 'notifyBody'>>;
 
@@ -426,5 +430,73 @@ export const gateApi = {
   clear: async (): Promise<void> => {
     const { error } = await supabase.rpc('clear_gate');
     if (error) throw error;
+  },
+};
+
+// ---- threads under letters: replies + reactions (0012) ----------------------------------
+
+export interface ReplyMedia {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+export interface Reply {
+  id: number;
+  authorId: string;
+  kind: 'text' | 'gif' | 'sticker';
+  body: string | null;
+  media: ReplyMedia | null;
+  createdAt: string;
+}
+
+export interface Reaction {
+  replyId: number | null; // null = on the letter itself
+  userId: string;
+  emoji: string;
+}
+
+export interface Thread {
+  replies: Reply[];
+  reactions: Reaction[];
+}
+
+type RawReply = { id: number; author_id: string; kind: Reply['kind']; body: string | null; media: ReplyMedia | null; created_at: string };
+const toReply = (r: RawReply): Reply => ({ id: r.id, authorId: r.author_id, kind: r.kind, body: r.body, media: r.media, createdAt: r.created_at });
+
+export const threadsApi = {
+  get: async (letterId: number): Promise<Thread> => {
+    const { data, error } = await supabase.rpc('get_thread', { p_letter: letterId });
+    if (error) throw error;
+    const d = data as { replies: RawReply[]; reactions: { reply_id: number | null; user_id: string; emoji: string }[] };
+    return {
+      replies: d.replies.map(toReply),
+      reactions: d.reactions.map((x) => ({ replyId: x.reply_id, userId: x.user_id, emoji: x.emoji })),
+    };
+  },
+  reply: async (letterId: number, kind: Reply['kind'], body: string | null, media: ReplyMedia | null): Promise<Reply> => {
+    const { data, error } = await supabase.rpc('add_reply', { p_letter: letterId, p_kind: kind, p_body: body, p_media: media });
+    if (error) throw error;
+    return toReply(data as RawReply);
+  },
+  deleteReply: async (id: number): Promise<void> => {
+    const { error } = await supabase.rpc('delete_reply', { p_id: id });
+    if (error) throw error;
+  },
+  /** Resolves to true if the reaction is now on, false if it was taken back. */
+  toggleReaction: async (letterId: number, replyId: number | null, emoji: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('toggle_reaction', { p_letter: letterId, p_reply: replyId, p_emoji: emoji });
+    if (error) throw error;
+    return data as boolean;
+  },
+  markSeen: async (letterId: number): Promise<void> => {
+    const { error } = await supabase.rpc('mark_thread_seen', { p_letter: letterId });
+    if (error) throw error;
+  },
+  /** letter id -> replies/reactions from the other person you haven't seen yet */
+  unread: async (): Promise<Map<number, number>> => {
+    const { data, error } = await supabase.rpc('thread_activity');
+    if (error) throw error;
+    return new Map(((data ?? []) as { letter_id: number; unread: number }[]).filter((r) => r.unread > 0).map((r) => [r.letter_id, r.unread]));
   },
 };

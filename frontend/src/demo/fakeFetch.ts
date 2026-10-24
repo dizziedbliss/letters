@@ -166,7 +166,7 @@ function rpc(name: string, args: Row, me: string | null): Response {
       persist();
     }
     const body = db.letter_bodies.find((b) => b.letter_id === l.id);
-    return json([{ id: l.id, title: l.title, greeting: l.greeting, doc: body?.doc ?? [], banner: body?.banner ?? null, look: body?.look ?? null, opened_at: o.opened_at }]);
+    return json([{ id: l.id, title: l.title, greeting: l.greeting, doc: body?.doc ?? [], banner: body?.banner ?? null, look: body?.look ?? null, opened_at: o.opened_at, edited_at: l.edited_at ?? null }]);
   }
 
   if (name === 'unlock_letter') {
@@ -176,6 +176,68 @@ function rpc(name: string, args: Row, me: string | null): Response {
       persist();
     }
     return json(null, 204);
+  }
+
+  // ---- threads (0012) ----
+  if (['get_thread', 'add_reply', 'toggle_reaction', 'mark_thread_seen', 'delete_reply', 'thread_activity'].includes(name)) {
+    db.letter_replies ??= [];
+    db.letter_reactions ??= [];
+    db.letter_thread_seen ??= [];
+    const canThread = (id: unknown) => {
+      const l = db.letters.find((x) => x.id === id && x.published_at);
+      return !!l && (l.author_id === me || !!opened(l.id, me));
+    };
+    const seenAt = (id: unknown) => (db.letter_thread_seen.find((x) => x.user_id === me && x.letter_id === id)?.seen_at as string) ?? '';
+    const markSeen = (id: unknown) => {
+      db.letter_thread_seen = db.letter_thread_seen.filter((x) => !(x.user_id === me && x.letter_id === id));
+      db.letter_thread_seen.push({ user_id: me, letter_id: id, seen_at: new Date().toISOString() });
+    };
+    if (name === 'thread_activity') {
+      const rows = db.letters
+        .filter((l) => canThread(l.id))
+        .map((l) => ({
+          letter_id: l.id,
+          unread: [...db.letter_replies.filter((r) => r.letter_id === l.id && r.author_id !== me), ...db.letter_reactions.filter((x) => x.letter_id === l.id && x.user_id !== me)].filter(
+            (x) => (x.created_at as string) > seenAt(l.id)
+          ).length,
+        }));
+      return json(rows);
+    }
+    if (name === 'delete_reply') {
+      db.letter_replies = db.letter_replies.filter((r) => !(r.id === args.p_id && r.author_id === me));
+      db.letter_reactions = db.letter_reactions.filter((x) => x.reply_id !== args.p_id || db.letter_replies.some((r) => r.id === args.p_id));
+      persist();
+      return json(null, 204);
+    }
+    if (!canThread(args.p_letter)) return pgError(403, 'not your thread', '42501');
+    if (name === 'get_thread') {
+      return json({
+        replies: db.letter_replies.filter((r) => r.letter_id === args.p_letter),
+        reactions: db.letter_reactions.filter((x) => x.letter_id === args.p_letter),
+      });
+    }
+    if (name === 'mark_thread_seen') {
+      markSeen(args.p_letter);
+      persist();
+      return json(null, 204);
+    }
+    if (name === 'add_reply') {
+      const body = args.p_kind === 'text' ? String(args.p_body ?? '').trim() : null;
+      if (args.p_kind === 'text' ? !body : !args.p_media) return pgError(400, 'empty reply', '23514');
+      const r = { id: Date.now(), letter_id: args.p_letter, author_id: me, kind: args.p_kind, body, media: args.p_kind === 'text' ? null : args.p_media, created_at: new Date().toISOString() };
+      db.letter_replies.push(r);
+      markSeen(args.p_letter);
+      persist();
+      return json(r);
+    }
+    // toggle_reaction
+    const same = (x: Row) => x.letter_id === args.p_letter && (x.reply_id ?? null) === (args.p_reply ?? null) && x.user_id === me && x.emoji === args.p_emoji;
+    const had = db.letter_reactions.some(same);
+    db.letter_reactions = had
+      ? db.letter_reactions.filter((x) => !same(x))
+      : [...db.letter_reactions, { letter_id: args.p_letter, reply_id: args.p_reply ?? null, user_id: me, emoji: args.p_emoji, created_at: new Date().toISOString() }];
+    persist();
+    return json(!had);
   }
 
   // The gate's drawing lives in its own key, read fresh each time, so two demo tabs share it

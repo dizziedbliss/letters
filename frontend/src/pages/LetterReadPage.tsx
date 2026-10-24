@@ -11,6 +11,7 @@ import { themeFor } from '../features/intro/doc';
 
 // BlockNote is big; only load it when a letter is actually being read
 const LetterBody = lazy(() => import('../features/letters/LetterBody'));
+const LetterThread = lazy(() => import('../features/letters/thread/LetterThread'));
 
 type State =
   | { kind: 'loading' }
@@ -107,7 +108,17 @@ export const LetterReadPage: React.FC = () => {
                   &mdash; {writer}
                 </p>
               )}
+              {state.letter.editedAt && (
+                <p className="mt-2 font-mono text-[10px] tracking-[0.2em] opacity-45" style={{ color: theme.ink }}>
+                  EDITED · {new Date(state.letter.editedAt).toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase()}
+                </p>
+              )}
             </LetterCanvas>
+            <div className="max-w-[480px] mx-auto px-4 mt-10">
+              <Suspense fallback={null}>
+                <LetterThread letterId={state.letter.id} />
+              </Suspense>
+            </div>
           </article>
         )}
       </main>
