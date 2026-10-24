@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTransitionContext, WIPE, type WipeLabel } from './context';
+import { preloadRoute } from '../../routes';
 
 type Phase = 'idle' | 'in' | 'hold' | 'out';
 
@@ -120,6 +121,7 @@ export const PageTransitionProvider: React.FC<{ children: React.ReactNode }> = (
   const go = useCallback(
     (to: string, label: WipeLabel) => {
       if (busy.current) return;
+      preloadRoute(to); // fetch the next page while the bands cover the screen
       if (reducedMotion()) {
         navigate(to);
         return;

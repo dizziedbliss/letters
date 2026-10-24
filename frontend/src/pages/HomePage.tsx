@@ -6,6 +6,9 @@ import { Petals } from '../components/hub/Petals';
 import { markBootSeen, shouldBoot } from '../components/hub/boot';
 import { usePageTransition, WIPE } from '../components/transition/context';
 import { DoorTile } from '../components/hub/DoorTile';
+import { preloadAllWhenIdle } from '../routes';
+import { NotifyControl } from '../components/hub/NotifyControl';
+import { useToast } from '../components/common/Toast';
 import { IconLetter, IconWrite, IconStar, IconPuzzle, IconPin, IconUs } from '../components/hub/icons';
 
 // Placeholder names/notes: each door gets its own copy as we build its page.
@@ -55,9 +58,12 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     myName().then(setName).catch(() => {});
+    preloadAllWhenIdle(); // the doors' pages are small; have them ready before a tap
     const tick = setInterval(() => setClock(timeNow()), 30_000);
     return () => clearInterval(tick);
   }, []);
+
+  const { show: showToast, node: toastNode } = useToast();
 
   const signOut = async () => {
     await logout();
@@ -155,6 +161,7 @@ export const HomePage: React.FC = () => {
           <p className="font-mono text-[11px] mt-4 text-ink/60 tracking-wider">
             SESSION ACTIVE &nbsp;·&nbsp; <span ref={coordRef}>X:5.0 Y:6.0</span>
           </p>
+          <NotifyControl onMessage={showToast} />
         </section>
 
         <nav aria-label="Sections" className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-4">
@@ -173,7 +180,7 @@ export const HomePage: React.FC = () => {
           ))}
         </nav>
       </div>
-
+      {toastNode}
     </div>
   );
 };

@@ -14,7 +14,6 @@ export const LettersPage: React.FC = () => {
   const [writer, setWriter] = useState<string | null>(null);
   const [armed, setArmed] = useState<number | null>(null);
   const [error, setError] = useState(false);
-  const now = useNow(1000);
 
   const load = useCallback(() => {
     letterIndex()
@@ -36,6 +35,7 @@ export const LettersPage: React.FC = () => {
       ),
     [letters]
   );
+  const now = useNow(nextUnlock < Infinity ? 1000 : null); // only tick while something counts down
   useEffect(() => {
     if (now >= nextUnlock) load();
   }, [now, nextUnlock, load]);

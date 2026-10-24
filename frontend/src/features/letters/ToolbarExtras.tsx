@@ -3,6 +3,13 @@ import { useActiveStyles, useBlockNoteEditor, useComponentsContext, usePortalEle
 import type { letterSchema } from './schema';
 import { LETTER_FONTS, LETTER_SIZES } from './fonts';
 
+type SelectItem = { text: string; icon: React.ReactNode; isSelected: boolean; onClick: () => void };
+
+// BlockNote's Select crashes when no item is selected, e.g. a 38px heading (not one of our sizes)
+// or a selection mixing sizes. Show it as "Custom" instead.
+const withFallback = (items: SelectItem[]): SelectItem[] =>
+  items.some((i) => i.isSelected) ? items : [{ text: 'Custom', icon: null, isSelected: true, onClick: () => {} }, ...items];
+
 const useLetterEditor = () =>
   useBlockNoteEditor<typeof letterSchema.blockSchema, typeof letterSchema.inlineContentSchema, typeof letterSchema.styleSchema>();
 
@@ -16,7 +23,7 @@ export const FontSelect: React.FC = () => {
     <Components.FormattingToolbar.Select
       className="bn-select"
       portalElement={portalElement}
-      items={[
+      items={withFallback([
         {
           text: 'Default font',
           icon: null,
@@ -29,7 +36,7 @@ export const FontSelect: React.FC = () => {
           isSelected: active.font === f.family,
           onClick: () => editor.addStyles({ font: f.family } as never),
         })),
-      ]}
+      ])}
     />
   );
 };
@@ -44,7 +51,7 @@ export const SizeSelect: React.FC = () => {
     <Components.FormattingToolbar.Select
       className="bn-select"
       portalElement={portalElement}
-      items={LETTER_SIZES.map((s) => ({
+      items={withFallback(LETTER_SIZES.map((s) => ({
         text: s.label,
         icon: null,
         isSelected: (active.size ?? null) === s.value,
@@ -52,7 +59,7 @@ export const SizeSelect: React.FC = () => {
           if (s.value) editor.addStyles({ size: s.value } as never);
           else if (active.size) editor.removeStyles({ size: active.size } as never);
         },
-      }))}
+      })))}
     />
   );
 };

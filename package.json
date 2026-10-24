@@ -1,0 +1,9 @@
+{
+  "name": "letters-api",
+  "private": true,
+  "type": "module",
+  "description": "Server-side bits that deploy with the site on Vercel (api/).",
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}
