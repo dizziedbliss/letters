@@ -1,17 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTransition } from '../components/transition/context';
-import { useMyIntro, paragraphs } from '../hooks/useMyIntro';
-import charactersImg from '../assets/characters.png';
+import { IntroRenderer } from '../features/intro/IntroRenderer';
+import { themeFor } from '../features/intro/doc';
+import { useMyIntroPage } from '../features/intro/useMyIntroPage';
+import { useMediaUrl } from '../features/intro/useMediaUrl';
 
 interface LettersPageProps {
   onBack?: () => void;
 }
 
+/** My intro page ("Hello, ___"), built by the other person in the intro builder. */
 export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
   const navigate = useNavigate();
   const { go } = usePageTransition();
-  const { intro, ready } = useMyIntro();
+  const doc = useMyIntroPage();
+  const theme = doc ? themeFor(doc.background) : themeFor({ kind: 'preset', value: 'dark' });
 
   const handleBack = () => {
     if (onBack) {
@@ -22,56 +26,41 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="relative w-full min-h-dvh py-8 bg-[#151515] text-white flex items-center justify-center p-6 sm:p-12 overflow-x-hidden selection:bg-brand-cyan selection:text-black">
+    <div
+      className="relative w-full min-h-dvh overflow-x-hidden selection:bg-brand-cyan selection:text-black bg-cover bg-center"
+      style={{ backgroundColor: theme.bg }}
+    >
+      {theme.image && <IntroBackgroundImage src={theme.image} />}
+
       {/* Back button */}
       <button
         type="button"
         onClick={handleBack}
-        className="absolute top-6 left-6 text-white/50 hover:text-white transition-colors duration-200 text-sm font-body cursor-pointer flex items-center gap-1.5"
+        className="absolute top-6 left-6 z-20 transition-opacity duration-200 opacity-60 hover:opacity-100 text-sm font-body cursor-pointer flex items-center gap-1.5"
+        style={{ color: theme.strong }}
       >
         <span>&larr;</span>
         <span>Back</span>
       </button>
 
-      {/* Central Card / Layout Container */}
-      <div className="w-full max-w-[960px] flex flex-col md:flex-row items-center md:items-end justify-between gap-10 md:gap-14 my-auto">
-        
-        {/* Left Column: Heading, Subtitle & Action */}
-        <div className="flex-1 flex flex-col items-start text-left max-w-[580px] max-w-full">
-          {/* Main Title: "Hello, <nickname>", written by the other person */}
-          <h1 className="text-4xl sm:text-5xl md:text-[52px] font-normal tracking-tight text-white mb-8 leading-tight">
-            <span className="font-heading font-medium">Hello, </span>
-            <span className="font-body italic font-normal">{intro?.nickname ?? '\u00A0'}</span>
-          </h1>
-
-          {/* Description Body in Cardo */}
-          <div
-            className={`space-y-6 text-base sm:text-lg md:text-[21px] text-[#e8e8e8] font-body leading-relaxed mb-8 whitespace-pre-line ${ready ? 'animate-fade-in' : 'invisible'}`}
-          >
-            {intro && paragraphs(intro.intro).map((p, i) => <p key={i}>{p}</p>)}
-            {intro?.aside && <p className="pt-2 sm:text-[16px]">{intro.aside}</p>}
+      <main className="relative z-10 min-h-dvh flex flex-col justify-center pt-20 pb-12">
+        {doc && (
+          <div className="animate-fade-in">
+            <IntroRenderer doc={doc} onButton={() => navigate('/lettersPage')} />
           </div>
+        )}
+      </main>
+    </div>
+  );
+};
 
-          {/* Action Button: "This :3" */}
-          <button
-            type="button"
-            className="inline-flex items-center justify-center px-6 py-2 rounded-full bg-brand-cyan text-black font-body text-base sm:text-lg font-semibold tracking-wide transition-all duration-200 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,216,255,0.6)] active:scale-95 cursor-pointer"
-            onClick={() => navigate('/lettersPage')}
-          >
-            This :3
-          </button>
-        </div>
-
-        {/* Right Column: Character Illustration */}
-        <div className="flex-shrink-0 flex items-center justify-center md:justify-end pb-2">
-          <img
-            src={charactersImg}
-            alt="Illustration"
-            className="w-[170px] sm:w-[220px] md:w-[280px] h-auto object-contain select-none pointer-events-none drop-shadow-md"
-          />
-        </div>
-
-      </div>
+/** Uploaded background image, dimmed so text stays readable. */
+const IntroBackgroundImage: React.FC<{ src: string }> = ({ src }) => {
+  const url = useMediaUrl(src);
+  if (!url) return null;
+  return (
+    <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${url})` }}>
+      <div className="absolute inset-0 bg-black/35" />
     </div>
   );
 };
