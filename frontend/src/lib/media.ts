@@ -1,4 +1,8 @@
 import { supabase } from './supabase';
+import charactersImg from '../assets/characters.png';
+
+// Images bundled with the site that docs can point at as "asset:<name>"
+const ASSETS: Record<string, string> = { characters: charactersImg };
 
 // Uploads share the private bucket created in 0004. Letter images live under letters/,
 // and 0006 only lets the reader see those once the letter that uses them is opened.
@@ -10,6 +14,7 @@ const MAX_GIF_BYTES = 8 * 1024 * 1024;
 
 /** "storage:<path>" -> a short-lived signed URL; anything else is already a URL. */
 export async function resolveMedia(src: string): Promise<string> {
+  if (src.startsWith('asset:')) return ASSETS[src.slice('asset:'.length)] ?? src;
   if (!src.startsWith('storage:')) return src;
   const path = src.slice('storage:'.length);
   if (import.meta.env.VITE_DEMO === '1') {

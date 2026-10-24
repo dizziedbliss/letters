@@ -28,6 +28,6 @@ const Size = createReactStyleSpec(
   { render: ({ value, contentRef }) => <span ref={contentRef} style={{ fontSize: value, lineHeight: 1.3 }} /> }
 );
 
-export const letterSchema = BlockNoteSchema.create({
-  styleSpecs: { ...defaultStyleSpecs, ink: Ink, glow: Glow, font: Font, size: Size },
-});
+export const letterStyleSpecs = { ...defaultStyleSpecs, ink: Ink, glow: Glow, font: Font, size: Size };
+
+export const letterSchema = BlockNoteSchema.create({ styleSpecs: letterStyleSpecs });

@@ -1,0 +1,19 @@
+/* The intro page: text colour follows the page background, roomy spacing between blocks */
+.intro-body .bn-container,
+.intro-body.letter-body .bn-container {
+  --bn-colors-editor-text: var(--intro-ink);
+}
+
+.intro-body .bn-editor {
+  padding-inline: 0;
+  font-size: 18px;
+}
+
+.intro-body .bn-block-group > .bn-block-outer:not(:first-child) {
+  margin-top: 1.1rem;
+}
+
+/* Image blocks: no editor chrome when reading */
+.intro-body:not(.is-editing) .bn-file-block-content-wrapper {
+  cursor: default;
+}

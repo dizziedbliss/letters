@@ -225,7 +225,7 @@ export async function saveTheirDraft(doc: IntroDoc): Promise<void> {
   if (error) throw error;
 }
 
-/** Make the doc their live page, along with the letters-page nickname and note. */
+/** Make the doc their live page. */
 export async function publishTheirPage(doc: IntroDoc): Promise<void> {
   const other = await otherUserId();
   if (!other) throw new Error('no one to build for yet');
@@ -233,12 +233,6 @@ export async function publishTheirPage(doc: IntroDoc): Promise<void> {
     .from('intro_pages')
     .upsert({ for_user: other, doc, published_at: new Date().toISOString() });
   if (error) throw error;
-  if (doc.letters) {
-    const { error: e2 } = await supabase
-      .from('intros')
-      .upsert({ for_user: other, nickname: doc.letters.nickname, note: doc.letters.note });
-    if (e2) throw e2;
-  }
 }
 
 // ---- writing (my own letters; bodies live in the author-only letter_bodies) ------

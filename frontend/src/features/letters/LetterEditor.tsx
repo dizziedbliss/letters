@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import type { PartialBlock } from '@blocknote/core';
-import { FormattingToolbar, FormattingToolbarController, getFormattingToolbarItems, useCreateBlockNote } from '@blocknote/react';
+import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/ariakit';
 import '@blocknote/ariakit/style.css';
 import './letter-body.css';
 import { letterSchema } from './schema';
 import { ensureLetterFonts } from './fonts';
-import { FontSelect, GlowPicker, InkPicker, LooksSelect, SizeSelect } from './ToolbarExtras';
+import { RichToolbar } from './RichToolbar';
 import { resolveMedia, uploadMedia } from '../../lib/media';
 
 interface LetterEditorProps {
@@ -34,18 +34,7 @@ const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange }) => {
       onChange={() => onChange(editor.document)}
       className="letter-body letter-editor"
     >
-      <FormattingToolbarController
-        formattingToolbar={() => (
-          <FormattingToolbar>
-            <LooksSelect key="looks" />
-            {getFormattingToolbarItems().filter((item) => !String(item.key).toLowerCase().includes('nest'))}
-            <FontSelect key="font" />
-            <SizeSelect key="size" />
-            <InkPicker key="ink" />
-            <GlowPicker key="glow" />
-          </FormattingToolbar>
-        )}
-      />
+      <RichToolbar />
     </BlockNoteView>
   );
 };
