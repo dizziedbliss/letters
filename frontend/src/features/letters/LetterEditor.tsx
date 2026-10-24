@@ -6,6 +6,7 @@ import '@blocknote/ariakit/style.css';
 import './letter-body.css';
 import { letterSchema } from './schema';
 import { ensureLetterFonts } from './fonts';
+import { SlashMenu } from '../editor/SlashMenu';
 import { RichToolbar } from './RichToolbar';
 import { resolveMedia, uploadMedia } from '../../lib/media';
 
@@ -31,10 +32,12 @@ const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange }) => {
       editor={editor}
       theme="dark"
       formattingToolbar={false}
+      slashMenu={false}
       onChange={() => onChange(editor.document)}
       className="letter-body letter-editor"
     >
       <RichToolbar />
+      <SlashMenu />
     </BlockNoteView>
   );
 };

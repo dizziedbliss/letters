@@ -1,14 +1,9 @@
 import React from 'react';
 import type { LetterGroup, LetterRule, MyLetter } from '../../../utils/api';
 import { FieldLabel, Segmented, inputClass } from './controls';
+import { DateTimePicker } from '../../../components/common/DateTimePicker';
 
 type RuleKind = 'none' | LetterRule['kind'];
-
-const toLocalInput = (iso: string) => {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 
 const groupLabel = (g: LetterGroup) => `${g.name} · ${g.quota ? `${g.quota} per ${g.period}` : 'unlimited'}`;
 
@@ -79,12 +74,9 @@ export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters,
           ]}
         />
         {letter.rule?.kind === 'date' && (
-          <input
-            type="datetime-local"
-            className={`${inputClass} mt-2`}
-            value={toLocalInput(letter.rule.at)}
-            onChange={(e) => e.target.value && onPatch({ rule: { kind: 'date', at: new Date(e.target.value).toISOString() } })}
-          />
+          <div className="mt-2">
+            <DateTimePicker value={letter.rule.at} onChange={(at) => onPatch({ rule: { kind: 'date', at } })} />
+          </div>
         )}
         {letter.rule?.kind === 'after' && (
           <select

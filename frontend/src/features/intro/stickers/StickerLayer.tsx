@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Sticker } from '../doc';
+import { stickerZ, type Sticker } from '../doc';
 import { StickerContent } from './StickerView';
 import { clampWidth, heightOf, snapAngle, snapMove, type Guide } from './snap';
 
@@ -33,10 +33,7 @@ export const StickerLayer: React.FC<StickerLayerProps> = ({ stickers, scale, fra
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     onSelect(s.id);
-    // whatever you touch comes to the front
-    const top = Math.max(0, ...stickers.map((x) => x.z));
-    const orig = s.z < top ? { ...s, z: top + 1 } : s;
-    if (orig !== s) update(s.id, { z: orig.z }, `drag:${s.id}`);
+    const orig = s;
     if (mode === 'rotate') {
       const r = els.current.get(s.id)!.getBoundingClientRect();
       drag.current = { mode, id: s.id, cx: r.left + r.width / 2, cy: r.top + r.height / 2, orig };
@@ -111,7 +108,8 @@ export const StickerLayer: React.FC<StickerLayerProps> = ({ stickers, scale, fra
             onPointerCancel={end}
             onClick={(e) => e.stopPropagation()}
             className={`absolute touch-none cursor-grab active:cursor-grabbing ${selected ? 'outline-2 outline-dashed outline-brand-cyan outline-offset-4' : ''}`}
-            style={{ left: s.x, top: s.y, width: s.width, zIndex: 10 + s.z, transform: `rotate(${s.rotation}deg)` }}
+            // the selected sticker floats above everything so its handles are always reachable
+            style={{ left: s.x, top: s.y, width: s.width, zIndex: selected ? 900 : stickerZ(s), transform: `rotate(${s.rotation}deg)` }}
           >
             <StickerContent sticker={s} />
             {selected && (

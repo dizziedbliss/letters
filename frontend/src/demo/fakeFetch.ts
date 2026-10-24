@@ -382,7 +382,13 @@ async function storage(req: Request, url: URL): Promise<Response> {
   }
   if (req.method === 'POST' || req.method === 'PUT') {
     const key = decodeURIComponent(path.replace(/^[^/]+\//, ''));
-    const blob = await req.blob();
+    // supabase-js sends uploads as multipart form data: keep the file, not the form
+    let blob: Blob = await req.clone().blob();
+    if ((req.headers.get('content-type') ?? '').includes('multipart/form-data')) {
+      const form = await req.formData();
+      const file = [...form.values()].find((v): v is File => typeof v !== 'string');
+      if (file) blob = file;
+    }
     const dataUrl = await new Promise<string>((resolve) => {
       const fr = new FileReader();
       fr.onload = () => resolve(fr.result as string);

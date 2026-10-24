@@ -2,6 +2,7 @@ import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
 import { createReactBlockSpec } from '@blocknote/react';
 import { letterStyleSpecs } from '../letters/schema';
 import { LettersButtonView } from './LettersButtonView';
+import { EmbedBlock } from '../editor/embedBlock';
 
 /**
  * The way into the letters. Always on the page: it can be moved, relabelled,
@@ -23,6 +24,6 @@ const LettersButton = createReactBlockSpec(
 );
 
 export const introSchema = BlockNoteSchema.create({
-  blockSpecs: { ...defaultBlockSpecs, lettersButton: LettersButton() },
+  blockSpecs: { ...defaultBlockSpecs, lettersButton: LettersButton(), embed: EmbedBlock() },
   styleSpecs: letterStyleSpecs,
 });

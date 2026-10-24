@@ -16,14 +16,23 @@ export type Align = 'left' | 'center' | 'right';
 
 export interface Sticker {
   id: string;
-  kind: 'emoji' | 'image' | 'doodle';
-  value: string; // the emoji, an image src ("storage:", "asset:", URL), or a doodle name
+  kind: 'image' | 'emoji' | 'doodle'; // only 'image' is offered now; the others may exist in old pages
+  value: string; // an image src ("storage:", "asset:", or a URL like a KLIPY sticker)
   x: number; // design px from the left
   y: number; // design px from the top
   width: number; // design px
   rotation: number; // degrees
-  z: number;
+  z: number; // order among stickers (newest on top)
 }
+
+/** Optional header image across the top of the page. */
+export interface Banner {
+  src: string; // "storage:", "asset:", or a URL (a KLIPY GIF works too)
+  height: 'sm' | 'md' | 'lg';
+  focus: number; // 0-100: which part of the image stays in view (vertical)
+}
+
+export const BANNER_PX = { sm: 120, md: 170, lg: 230 } as const;
 
 export type Background =
   | { kind: 'preset'; value: 'dark' | 'paper' | 'purple' }
@@ -36,6 +45,7 @@ export type ContentBlock = { type: string; props?: Record<string, unknown>; cont
 export interface IntroDoc {
   version: 2;
   background: Background;
+  banner?: Banner | null;
   content: ContentBlock[];
   stickers: Sticker[];
 }
@@ -48,6 +58,10 @@ export const lettersButtonBlock = (props: Partial<{ label: string; color: string
   type: 'lettersButton',
   props: { label: 'This :3', color: 'cyan', align: 'left', ...props },
 });
+
+/** Stickers always sit above the text (which is at CONTENT_Z). */
+export const stickerZ = (s: Sticker) => 10 + s.z;
+export const CONTENT_Z = 5;
 
 /** Lowest point any sticker reaches, so the frame is tall enough to show it. */
 export const stickersBottom = (doc: IntroDoc) => Math.max(0, ...doc.stickers.map((s) => s.y + s.width * 1.2));
@@ -124,7 +138,8 @@ export function parseDoc(raw: unknown): IntroDoc | null {
   const stickers = Array.isArray(d.stickers) ? (d.stickers as Sticker[]) : [];
 
   if (d.version === 2 && Array.isArray(d.content)) {
-    return { version: 2, background, stickers, content: ensureLettersButton(d.content as ContentBlock[]) };
+    const banner = d.banner && typeof d.banner === 'object' && (d.banner as Banner).src ? (d.banner as Banner) : null;
+    return { version: 2, background, banner, stickers, content: ensureLettersButton(d.content as ContentBlock[]) };
   }
   if (d.version === 1 && Array.isArray(d.blocks)) {
     const content = (d.blocks as V1Block[]).filter((b) => b && b.props).flatMap(convertV1Block);

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import type { Background, IntroDoc, Sticker } from '../doc';
-import { DOODLES, EMOJI } from '../stickers/doodles';
+import type { Background, Banner, IntroDoc, Sticker } from '../doc';
 import { uploadMedia } from '../../../lib/media';
+import { GifPicker } from '../../media/GifPicker';
 import { Chip, Row } from './ui';
 
 type NewSticker = Pick<Sticker, 'kind' | 'value'> & { width?: number };
@@ -15,14 +15,33 @@ const PRESETS: { value: 'dark' | 'paper' | 'purple'; label: string; swatch: stri
 const sectionTitle = 'font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-2';
 
 /** Background: presets, any colour, or an uploaded image. */
-export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background) => void; onError: (m: string) => void }> = ({
-  doc,
-  setBackground,
-  onError,
-}) => {
+export const PagePanel: React.FC<{
+  doc: IntroDoc;
+  setBackground: (b: Background) => void;
+  setBanner: (b: Banner | null, key?: string) => void;
+  onError: (m: string) => void;
+}> = ({ doc, setBackground, setBanner, onError }) => {
   const bg = doc.background;
+  const banner = doc.banner ?? null;
   const file = useRef<HTMLInputElement>(null);
+  const bannerFile = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [gifFor, setGifFor] = useState<'background' | 'banner' | null>(null);
+  const [bannerLink, setBannerLink] = useState('');
+
+  const putBanner = (src: string) => setBanner({ src, height: banner?.height ?? 'md', focus: banner?.focus ?? 50 });
+
+  const uploadBanner = async (f: File | undefined) => {
+    if (!f) return;
+    setUploading(true);
+    try {
+      putBanner(await uploadMedia(f, 'intro'));
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const upload = async (f: File | undefined) => {
     if (!f) return;
@@ -68,17 +87,80 @@ export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background)
         <Chip active={bg.kind === 'image'} onClick={() => file.current?.click()}>
           {uploading ? 'UPLOADING…' : bg.kind === 'image' ? 'CHANGE IMAGE' : 'IMAGE'}
         </Chip>
+        <Chip onClick={() => setGifFor('background')}>GIF</Chip>
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => upload(e.target.files?.[0])} />
       </Row>
+
+      <div className="h-px bg-white/10 !my-5" />
+      <p className={sectionTitle}>Banner (optional)</p>
+      <Row label="Image">
+        <Chip onClick={() => bannerFile.current?.click()}>{uploading ? 'UPLOADING…' : 'UPLOAD'}</Chip>
+        <Chip onClick={() => setGifFor('banner')}>GIF</Chip>
+        {banner && <Chip onClick={() => setBanner(null)}><span className="text-rose-300">REMOVE</span></Chip>}
+        <input ref={bannerFile} type="file" accept="image/*" hidden onChange={(e) => uploadBanner(e.target.files?.[0])} />
+      </Row>
+      <div className="flex gap-2 pl-16">
+        <input
+          value={bannerLink}
+          onChange={(e) => setBannerLink(e.target.value)}
+          placeholder="or paste an image link"
+          className="flex-1 min-w-0 h-10 bg-white/8 rounded-xl px-3 outline-none font-body text-base text-white placeholder:text-white/30"
+        />
+        <Chip
+          disabled={!/^https?:\/\//.test(bannerLink.trim())}
+          onClick={() => {
+            putBanner(bannerLink.trim());
+            setBannerLink('');
+          }}
+        >
+          SET
+        </Chip>
+      </div>
+      {banner && (
+        <>
+          <Row label="Height">
+            {(['sm', 'md', 'lg'] as const).map((h) => (
+              <Chip key={h} active={banner.height === h} onClick={() => setBanner({ ...banner, height: h })}>
+                {h === 'sm' ? 'SLIM' : h === 'md' ? 'MEDIUM' : 'TALL'}
+              </Chip>
+            ))}
+          </Row>
+          <Row label="Focus">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={banner.focus}
+              onChange={(e) => setBanner({ ...banner, focus: Number(e.target.value) }, 'banner-focus')}
+              className="w-44 accent-[#00D8FF]"
+              aria-label="which part of the banner shows"
+            />
+            <span className="font-mono text-[10px] text-white/40">{banner.focus < 34 ? 'TOP' : banner.focus > 66 ? 'BOTTOM' : 'MIDDLE'}</span>
+          </Row>
+        </>
+      )}
+
+      {gifFor && (
+        <GifPicker
+          only="gifs"
+          onClose={() => setGifFor(null)}
+          onPick={(g) => {
+            if (gifFor === 'background') setBackground({ kind: 'image', value: g.url });
+            else putBanner(g.url);
+            setGifFor(null);
+          }}
+        />
+      )}
     </div>
   );
 };
 
-/** Stickers: emoji, doodles, an uploaded image, or a pasted image/GIF link. */
+/** Stickers: KLIPY search, an uploaded image, or a pasted image/GIF link. */
 export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void; onError: (m: string) => void }> = ({ onAdd, onError }) => {
   const file = useRef<HTMLInputElement>(null);
   const [link, setLink] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [klipyOpen, setKlipyOpen] = useState(false);
 
   const upload = async (f: File | undefined) => {
     if (!f) return;
@@ -94,32 +176,13 @@ export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void; onError:
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className={sectionTitle}>Emoji</p>
-        <div className="grid grid-cols-8 gap-1">
-          {EMOJI.map((e) => (
-            <button key={e} type="button" onClick={() => onAdd({ kind: 'emoji', value: e })} className="aspect-square rounded-lg text-2xl hover:bg-white/10 cursor-pointer">
-              {e}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className={sectionTitle}>Doodles</p>
-        <div className="grid grid-cols-4 gap-2">
-          {Object.entries(DOODLES).map(([name, svg]) => (
-            <button
-              key={name}
-              type="button"
-              aria-label={name}
-              onClick={() => onAdd({ kind: 'doodle', value: name, width: 90 })}
-              className="aspect-square rounded-xl bg-white/[0.06] hover:bg-white/12 p-3 cursor-pointer flex items-center justify-center [&>svg]:w-full [&>svg]:h-auto"
-            >
-              {svg}
-            </button>
-          ))}
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={() => setKlipyOpen(true)}
+        className="w-full h-12 rounded-2xl bg-brand-purple hover:shadow-[0_0_20px_rgba(97,0,216,0.6)] font-mono text-[11px] tracking-[0.2em] text-white cursor-pointer"
+      >
+        SEARCH STICKERS & GIFS ✦
+      </button>
       <div>
         <p className={sectionTitle}>Your own</p>
         <div className="flex gap-2">
@@ -144,6 +207,17 @@ export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void; onError:
           </Chip>
         </div>
       </div>
+
+      {klipyOpen && (
+        <GifPicker
+          initialKind="stickers"
+          onClose={() => setKlipyOpen(false)}
+          onPick={(item) => {
+            onAdd({ kind: 'image', value: item.url, width: Math.min(160, Math.max(80, Math.round(item.width * 0.6))) });
+            setKlipyOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

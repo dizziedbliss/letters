@@ -7,6 +7,7 @@ import '../letters/letter-body.css';
 import './intro-body.css';
 import { introSchema } from './introSchema';
 import { ensureLetterFonts } from '../letters/fonts';
+import { SlashMenu } from '../editor/SlashMenu';
 import { RichToolbar } from '../letters/RichToolbar';
 import { resolveMedia, uploadMedia } from '../../lib/media';
 import type { ContentBlock } from './doc';
@@ -47,10 +48,11 @@ const IntroBody: React.FC<IntroBodyProps> = ({ content, editable, ink, onChange,
         theme="dark"
         formattingToolbar={false}
         sideMenu={editable}
-        slashMenu={editable}
+        slashMenu={false}
         onChange={() => onChange?.(editor.document as ContentBlock[])}
       >
         {editable && <RichToolbar />}
+        {editable && <SlashMenu />}
       </BlockNoteView>
     </div>
   );

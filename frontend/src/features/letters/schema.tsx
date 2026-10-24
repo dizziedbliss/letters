@@ -1,5 +1,6 @@
-import { BlockNoteSchema, defaultStyleSpecs } from '@blocknote/core';
+import { BlockNoteSchema, defaultBlockSpecs, defaultStyleSpecs } from '@blocknote/core';
 import { createReactStyleSpec } from '@blocknote/react';
+import { EmbedBlock } from '../editor/embedBlock';
 
 // Extra inline styles on top of BlockNote's defaults, so formatting isn't stuck to presets:
 // any text colour, any highlight colour, a font, and a size. Editor and reader share this schema.
@@ -30,4 +31,7 @@ const Size = createReactStyleSpec(
 
 export const letterStyleSpecs = { ...defaultStyleSpecs, ink: Ink, glow: Glow, font: Font, size: Size };
 
-export const letterSchema = BlockNoteSchema.create({ styleSpecs: letterStyleSpecs });
+export const letterSchema = BlockNoteSchema.create({
+  blockSpecs: { ...defaultBlockSpecs, embed: EmbedBlock() },
+  styleSpecs: letterStyleSpecs,
+});

@@ -1,13 +1,14 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthError, publishTheirPage, saveTheirDraft, theirBuilderState } from '../utils/api';
-import { DESIGN_WIDTH, MAX_SCALE, stickersBottom, ensureLettersButton, lettersButtonBlock, newId, parseDoc, starterDoc, themeFor, type ContentBlock, type IntroDoc, type Sticker } from '../features/intro/doc';
+import { CONTENT_Z, DESIGN_WIDTH, MAX_SCALE, stickersBottom, ensureLettersButton, type Banner, lettersButtonBlock, newId, parseDoc, starterDoc, themeFor, type ContentBlock, type IntroDoc, type Sticker } from '../features/intro/doc';
 import { useDocHistory } from '../features/intro/editor/useDocHistory';
 import { useDesignScale } from '../features/intro/useDesignScale';
 import { StickerLayer } from '../features/intro/stickers/StickerLayer';
 import { PagePanel, StickerPalette } from '../features/intro/editor/Palettes';
 import { Sheet } from '../features/intro/editor/ui';
 import { useMediaUrl } from '../features/intro/useMediaUrl';
+import { BannerView } from '../features/intro/BannerView';
 import { useToast } from '../components/common/Toast';
 import type { IntroEditor } from '../features/intro/IntroBody';
 
@@ -106,7 +107,7 @@ export const IntroBuilderPage: React.FC = () => {
 
   const addSticker = ({ kind, value, width }: Pick<Sticker, 'kind' | 'value'> & { width?: number }) => {
     if (!doc) return;
-    const w = width ?? 64;
+    const w = width ?? 120;
     // drop it in the middle of what's on screen
     const rect = frameRef.current?.getBoundingClientRect();
     const midY = rect ? (window.innerHeight / 2 - rect.top) / box.scale : 120;
@@ -117,7 +118,7 @@ export const IntroBuilderPage: React.FC = () => {
       width: w,
       x: Math.round((DESIGN_WIDTH - w) / 2),
       y: Math.max(0, Math.round(midY - w / 2)),
-      rotation: kind === 'emoji' ? 0 : -6,
+      rotation: -4,
       z: Math.max(0, ...doc.stickers.map((s) => s.z)) + 1,
     };
     setStickers([...doc.stickers, sticker]);
@@ -168,9 +169,14 @@ export const IntroBuilderPage: React.FC = () => {
     history.update((d) => ({ ...d, background }), background.kind === 'color' ? 'bg-color' : undefined);
   };
 
+  const setBanner = (banner: Banner | null, key?: string) => {
+    lastArea.current = 'page';
+    history.update((d) => ({ ...d, banner }), key);
+  };
+
   const panels = (
     <>
-      <PagePanel doc={doc} setBackground={setBackground} onError={(m) => showToast(m, 'error')} />
+      <PagePanel doc={doc} setBackground={setBackground} setBanner={setBanner} onError={(m) => showToast(m, 'error')} />
       <div className="h-px bg-white/10 my-5" />
       <p className="font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-3">Stickers</p>
       <StickerPalette onAdd={addSticker} onError={(m) => showToast(m, 'error')} />
@@ -251,6 +257,8 @@ export const IntroBuilderPage: React.FC = () => {
                 backgroundSize: grid ? '16px 16px' : undefined,
               }}
             >
+              {doc.banner && <BannerView banner={doc.banner} />}
+              <div className="relative" style={{ zIndex: CONTENT_Z }}>
               <Suspense fallback={<p className="font-body italic opacity-50">loading editor...</p>}>
                 <IntroBody
                   content={initialContent}
@@ -264,6 +272,7 @@ export const IntroBuilderPage: React.FC = () => {
                   }}
                 />
               </Suspense>
+              </div>
               <StickerLayer
                 stickers={doc.stickers}
                 scale={box.scale}
@@ -286,7 +295,7 @@ export const IntroBuilderPage: React.FC = () => {
 
       {sheet === 'page' && (
         <Sheet title="Page" onClose={() => setSheet(null)}>
-          <PagePanel doc={doc} setBackground={setBackground} onError={(m) => showToast(m, 'error')} />
+          <PagePanel doc={doc} setBackground={setBackground} setBanner={setBanner} onError={(m) => showToast(m, 'error')} />
         </Sheet>
       )}
       {sheet === 'stickers' && (

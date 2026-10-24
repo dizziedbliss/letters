@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
-import { MAX_SCALE, stickersBottom, themeFor, type IntroDoc } from './doc';
+import { CONTENT_Z, MAX_SCALE, stickersBottom, themeFor, type IntroDoc } from './doc';
+import { BannerView } from './BannerView';
 import { useDesignScale } from './useDesignScale';
 import { LettersButtonContext } from './introContext';
 import { StickerView } from './stickers/StickerView';
@@ -23,11 +24,14 @@ export const IntroRenderer: React.FC<IntroRendererProps> = ({ doc, onButton }) =
   return (
     <div ref={outerRef} className="relative w-full" style={{ height: box.height || undefined }}>
       <div ref={frameRef} className="absolute top-0 left-0 px-6 py-4" style={{ ...frameStyle, minHeight: stickersBottom(doc) }}>
-        <LettersButtonContext.Provider value={onButton}>
-          <Suspense fallback={<div className="h-40" />}>
-            <IntroBody content={doc.content} editable={false} ink={theme.ink} />
-          </Suspense>
-        </LettersButtonContext.Provider>
+        {doc.banner && <BannerView banner={doc.banner} />}
+        <div className="relative" style={{ zIndex: CONTENT_Z }}>
+          <LettersButtonContext.Provider value={onButton}>
+            <Suspense fallback={<div className="h-40" />}>
+              <IntroBody content={doc.content} editable={false} ink={theme.ink} />
+            </Suspense>
+          </LettersButtonContext.Provider>
+        </div>
         {doc.stickers.map((s) => (
           <StickerView key={s.id} sticker={s} />
         ))}

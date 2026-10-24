@@ -45,5 +45,5 @@ export const snapAngle = (deg: number) => {
 
 export const clampWidth = (w: number) => Math.min(380, Math.max(24, Math.round(w / 4) * 4));
 
-/** Rough height for snapping: emoji and doodles are about square; images report their real height. */
+/** Height for snapping: images report their real height; fall back to square. */
 export const heightOf = (s: Sticker, measured?: number) => measured ?? s.width;
