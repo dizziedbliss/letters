@@ -18,7 +18,7 @@ function App() {
     <ErrorBoundary>
       <Suspense fallback={<Blank />}>
         <Routes>
-          <Route path="/" element={<LandingPage onUnlock={() => go('/home', { label: 'Welcome', code: '00' })} />} />
+          <Route path="/" element={<LandingPage onEnter={() => go('/home', { label: 'Welcome', code: '00' })} />} />
           <Route path="/home" element={guard(<pages.home />)} />
           <Route path="/letters" element={guard(<pages.intro />)} />
           <Route path="/lettersPage" element={guard(<pages.letters />)} />

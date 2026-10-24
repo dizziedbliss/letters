@@ -5,7 +5,7 @@
    - Authentication > Sign In / Providers: turn OFF "Allow new users to sign up".
    - Authentication > Users: add the two accounts (email + password; the password is the secret code typed on the landing page).
    - Database > Extensions: enable `pg_net` and `pg_cron` (0010 needs them).
-   - SQL Editor: run `supabase/migrations/` in order, `0000` → `0010` (fill in the emails where a file asks).
+   - SQL Editor: run `supabase/migrations/` in order, `0000` → `0011` (fill in the emails where a file asks).
 2. **Env vars** (see `frontend/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ACCOUNT_EMAILS`,
    `VITE_KLIPY_KEY`, `VITE_VAPID_PUBLIC_KEY`.
    Put them in `frontend/.env` locally, and in Vercel under Settings > Environment Variables.

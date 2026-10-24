@@ -9,6 +9,15 @@ export const ACTIVE_RGB: [number, number, number] = [97, 0, 216];
 export const GLOW_ACTIVE_RGB: [number, number, number] = [97, 0, 216];
 export const GLOW_INACTIVE_RGB: [number, number, number] = [0, 216, 255];
 
+/** The shared drawing's colours, by the number stored in gate_cells.color (0 = empty). */
+export const PALETTE: { name: string; hex: string; rgb: [number, number, number] }[] = [
+  { name: 'eraser', hex: '#e6e7eb', rgb: PAPER_RGB },
+  { name: 'purple', hex: '#6100D8', rgb: ACTIVE_RGB },
+  { name: 'cyan', hex: '#00D8FF', rgb: [0, 216, 255] },
+  { name: 'coral', hex: '#FF6B57', rgb: [255, 107, 87] },
+  { name: 'ink', hex: '#151515', rgb: [21, 21, 21] },
+];
+
 /**
  * Generate initial highlighted tiles based on the screen's row and column counts.
  * Matches the design aesthetic: pixelated clusters around edges and corners.

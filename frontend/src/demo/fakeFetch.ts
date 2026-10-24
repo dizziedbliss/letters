@@ -178,8 +178,40 @@ function rpc(name: string, args: Row, me: string | null): Response {
     return json(null, 204);
   }
 
+  // The gate's drawing lives in its own key, read fresh each time, so two demo tabs share it
+  if (name === 'get_gate') return json(readGate().map(([k, color]) => ({ x: +k.split(',')[0], y: +k.split(',')[1], color })));
+  if (name === 'paint_cells') {
+    const gate = new Map(readGate());
+    for (const c of args.p_cells as { x: number; y: number; c: number }[]) {
+      if (c.c) gate.set(`${c.x},${c.y}`, c.c);
+      else gate.delete(`${c.x},${c.y}`);
+    }
+    writeGate([...gate]);
+    return json(null, 204);
+  }
+  if (name === 'clear_gate') {
+    writeGate([]);
+    return json(null, 204);
+  }
+
   return pgError(404, `function ${name} not found`, 'PGRST202');
 }
+
+const GATE_KEY = 'letters-demo-gate';
+const readGate = (): [string, number][] => {
+  try {
+    return JSON.parse(localStorage.getItem(GATE_KEY) ?? '[]');
+  } catch {
+    return [];
+  }
+};
+const writeGate = (cells: [string, number][]) => {
+  try {
+    localStorage.setItem(GATE_KEY, JSON.stringify(cells));
+  } catch {
+    // full: the demo just forgets
+  }
+};
 
 // ---- row-level security, roughly as the real policies --------------------------
 

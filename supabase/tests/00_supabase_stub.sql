@@ -51,3 +51,10 @@ create function cron.schedule(job_name text, schedule text, command text) return
      on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command returning 1::bigint $$;
 create schema vault;
 create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+
+-- 0011: Realtime's message table, so the channel policies can be created
+create schema realtime;
+create table realtime.messages (id bigserial, topic text, payload jsonb);
+alter table realtime.messages enable row level security;
+create function realtime.topic() returns text language sql stable as
+  $$ select current_setting('realtime.topic', true) $$;
