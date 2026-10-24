@@ -139,7 +139,40 @@ create policy "authors read own letters" on public.letters
 -- The old shuffle is retired
 drop function if exists public.next_letter();
 
--- 6. Lock state for one letter, from the reader's point of view
+-- 6a. How many opens a reader has used in a group this period (in their timezone; weeks start Monday)
+create or replace function public.letter_group_usage(p_group bigint, p_reader uuid)
+returns table (quota int, period text, used int, next_reset timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  g            public.letter_groups;
+  tz           text;
+  period_start timestamptz;
+begin
+  select * into g from public.letter_groups where id = p_group;
+  if g.id is null then
+    return;
+  end if;
+  select coalesce(p.timezone, 'UTC') into tz from public.profiles p where p.id = p_reader;
+  tz := coalesce(tz, 'UTC');
+  period_start := date_trunc(g.period, now() at time zone tz) at time zone tz;
+
+  return query
+  select g.quota, g.period,
+         (select count(*)::int
+          from public.letter_opens o
+          join public.letters l on l.id = o.letter_id
+          where o.reader_id = p_reader and l.group_id = g.id and o.opened_at >= period_start),
+         period_start + ('1 ' || g.period)::interval;
+end;
+$$;
+
+revoke all on function public.letter_group_usage(bigint, uuid) from public, anon, authenticated;
+
+-- 6b. Lock state for one letter, from the reader's point of view
 create or replace function public.letter_lock(p_letter public.letters, p_reader uuid)
 returns table (locked boolean, reason text, unlock_at timestamptz)
 language plpgsql
@@ -148,10 +181,7 @@ security definer
 set search_path = public
 as $$
 declare
-  tz         text;
-  g          public.letter_groups;
-  period_start timestamptz;
-  used       int;
+  u record;
 begin
   -- Anything already opened stays open forever (re-reading never counts)
   if exists (select 1 from public.letter_opens o where o.letter_id = p_letter.id and o.reader_id = p_reader) then
@@ -181,22 +211,11 @@ begin
     end case;
   end if;
 
-  -- Then the group's quota, counted in the reader's own timezone (weeks start Monday)
-  select * into g from public.letter_groups where id = p_letter.group_id;
-  if g.id is not null and g.quota is not null then
-    select coalesce(timezone, 'UTC') into tz from public.profiles where id = p_reader;
-    tz := coalesce(tz, 'UTC');
-    period_start := date_trunc(g.period, now() at time zone tz) at time zone tz;
-
-    select count(*) into used
-    from public.letter_opens o
-    join public.letters l on l.id = o.letter_id
-    where o.reader_id = p_reader and l.group_id = g.id and o.opened_at >= period_start;
-
-    if used >= g.quota then
-      return query select true, 'quota', period_start + ('1 ' || g.period)::interval;
-      return;
-    end if;
+  -- Then the group's quota
+  select * into u from public.letter_group_usage(p_letter.group_id, p_reader);
+  if u.quota is not null and u.used >= u.quota then
+    return query select true, 'quota', u.next_reset;
+    return;
   end if;
 
   return query select false, null::text, null::timestamptz;
@@ -213,6 +232,9 @@ returns table (
   sealed      boolean,
   section     text,
   group_name  text,
+  group_quota int,    -- null = unlimited
+  group_period text,  -- 'day' | 'week' | 'month'
+  group_used  int,    -- opens used this period
   created_at  timestamptz,
   opened_at   timestamptz,
   locked      boolean,
@@ -231,6 +253,9 @@ as $$
     l.sealed,
     l.section,
     g.name,
+    us.quota,
+    us.period,
+    us.used,
     l.created_at,
     o.opened_at,
     lk.locked,
@@ -244,6 +269,7 @@ as $$
   left join public.letter_groups g on g.id = l.group_id
   left join public.letter_opens o on o.letter_id = l.id and o.reader_id = auth.uid()
   cross join lateral public.letter_lock(l, auth.uid()) lk
+  left join lateral public.letter_group_usage(l.group_id, auth.uid()) us on true
   where auth.uid() is not null
     and l.author_id is distinct from auth.uid()
   order by l.created_at desc;

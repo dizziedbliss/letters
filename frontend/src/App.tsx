@@ -6,6 +6,7 @@ import LettersPage from './pages/LettersPage'
 import WritePage from './pages/WritePage'
 import HomePage from './pages/HomePage'
 import IntroBuilderPage from './pages/IntroBuilderPage'
+import LetterReadPage from './pages/LetterReadPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import { usePageTransition } from './components/transition/context'
 
@@ -36,6 +37,14 @@ function App() {
         element={
           <ProtectedRoute>
             <LettersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/letters/read/:id"
+        element={
+          <ProtectedRoute>
+            <LetterReadPage />
           </ProtectedRoute>
         }
       />

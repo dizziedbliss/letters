@@ -42,6 +42,8 @@ select id from open_letter(20);
 select id from open_letter(21);
 select id from open_letter(22);
 select id, lock_reason, to_char(unlock_at at time zone 'Asia/Kolkata', 'Dy YYYY-MM-DD HH24:MI') as unlocks_local from letter_index() where id = 22;
+\echo '--- 8b. usage numbers (expect Open when 2/2 week, Random 3/4 week)'
+select distinct group_name, group_used, group_quota, group_period from letter_index() order by group_name;
 \echo '--- 9. re-reading an opened letter is free (expect OK even at quota)'
 select id from open_letter(20);
 \echo '--- 10. cheat: insert an open directly (expect permission/RLS error)'

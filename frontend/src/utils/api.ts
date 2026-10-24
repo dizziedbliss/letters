@@ -15,24 +15,6 @@ export interface Letter {
 // PostgREST aliases (camelCase) so the rest of the app never sees snake_case
 const COLS = 'id, title, body, authorId:author_id, createdAt:created_at, updatedAt:updated_at';
 
-type LetterRow = {
-  id: number;
-  title: string;
-  body: string;
-  author_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-const fromRow = (r: LetterRow): Letter => ({
-  id: r.id,
-  title: r.title,
-  body: r.body,
-  authorId: r.author_id,
-  createdAt: r.created_at,
-  updatedAt: r.updated_at,
-});
-
 /** True when the error means "you're not (or no longer) signed in". */
 export const isAuthError = (err: unknown) => {
   const e = err as Partial<PostgrestError> & { status?: number };
@@ -85,12 +67,78 @@ export async function myName(): Promise<string | null> {
 
 // ---- reading (her "more?" button, and his) ---------------------------------
 
-/** Next unread letter written by the other person, or null when they're all read. */
-export async function nextLetter(): Promise<Letter | null> {
-  const { data, error } = await supabase.rpc('next_letter');
+// ---- letters index (reader side; bodies only ever come through open_letter) -----
+
+export type LockReason = 'date' | 'after' | 'manual' | 'quota';
+
+export interface IndexLetter {
+  id: number;
+  title: string | null; // null while a sealed letter is unopened
+  sealed: boolean;
+  section: 'random' | 'open_when';
+  groupName: string | null;
+  groupQuota: number | null; // null = unlimited
+  groupPeriod: 'day' | 'week' | 'month' | null;
+  groupUsed: number | null;
+  createdAt: string;
+  openedAt: string | null;
+  locked: boolean;
+  lockReason: LockReason | null;
+  unlockAt: string | null;
+  afterTitle: string | null;
+}
+
+/** Letters written for me, with sealed titles and secrets hidden until opened. */
+export async function letterIndex(): Promise<IndexLetter[]> {
+  const { data, error } = await supabase.rpc('letter_index');
   if (error) throw error;
-  const rows = (data ?? []) as LetterRow[];
-  return rows.length ? fromRow(rows[0]) : null;
+  return ((data ?? []) as Record<string, never>[]).map((r) => ({
+    id: r.id,
+    title: r.title,
+    sealed: r.sealed,
+    section: r.section,
+    groupName: r.group_name,
+    groupQuota: r.group_quota,
+    groupPeriod: r.group_period,
+    groupUsed: r.group_used,
+    createdAt: r.created_at,
+    openedAt: r.opened_at,
+    locked: r.locked,
+    lockReason: r.lock_reason,
+    unlockAt: r.unlock_at,
+    afterTitle: r.after_title,
+  }));
+}
+
+export interface OpenedLetter {
+  id: number;
+  title: string;
+  greeting: string;
+  doc: unknown[];
+  openedAt: string;
+}
+
+/** Thrown when the database refuses to open a letter yet. */
+export class LockedError extends Error {
+  reason: LockReason;
+  unlockAt: string | null;
+  constructor(reason: LockReason, unlockAt: string | null) {
+    super(`locked: ${reason}`);
+    this.reason = reason;
+    this.unlockAt = unlockAt;
+  }
+}
+
+/** Open (or re-read) a letter. Counts toward the quota the first time only. */
+export async function openLetter(id: number): Promise<OpenedLetter> {
+  const { data, error } = await supabase.rpc('open_letter', { p_id: id });
+  if (error) {
+    const m = /^locked: (\w+)/.exec(error.message);
+    if (m) throw new LockedError(m[1] as LockReason, error.hint || null);
+    throw error;
+  }
+  const row = (data as Record<string, never>[])[0];
+  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], openedAt: row.opened_at };
 }
 
 /** id -> display name for the two accounts. */
@@ -110,6 +158,13 @@ export interface Intro {
 }
 
 const INTRO_COLS = 'nickname, intro, aside, note';
+
+/** The other person's display name (the one who writes my letters). */
+export async function otherName(): Promise<string | null> {
+  const other = await otherUserId();
+  if (!other) return null;
+  return (await profileNames())[other] ?? null;
+}
 
 /** The other account's id (there are exactly two). */
 async function otherUserId(): Promise<string | null> {
