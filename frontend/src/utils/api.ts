@@ -138,6 +138,17 @@ export async function saveTheirIntro(intro: Intro): Promise<void> {
   if (error) throw error;
 }
 
+// ---- intro page builder docs -------------------------------------------------
+
+/** My published intro page doc (raw JSON; run it through parseDoc). Null if not published yet. */
+export async function myIntroPage(): Promise<unknown | null> {
+  const me = await currentUserId();
+  if (!me) return null;
+  const { data, error } = await supabase.from('intro_pages').select('doc').eq('for_user', me).maybeSingle();
+  if (error) throw error;
+  return data?.doc ?? null;
+}
+
 // ---- writing ---------------------------------------------------------------
 
 export const lettersApi = {
