@@ -1,12 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useImperativeHandle, useRef } from 'react';
 import {
   TILE_SIZE,
   BORDER_COLOR,
-  ACTIVE_RGB,
   INACTIVE_COLOR,
   PAPER_RGB,
-  GLOW_ACTIVE_RGB,
   GLOW_INACTIVE_RGB,
+  PALETTE,
   generateDefaultHighlights,
 } from './gridConfig';
 
@@ -21,13 +20,60 @@ const TAU_PRESS = 0.04;
 const approach = (value: number, target: number, dt: number, tau: number) =>
   value + (target - value) * (1 - Math.exp(-dt / tau));
 
+/** One tile of the shared drawing, counted from the centre tile (0,0). c: 0 = empty, else a PALETTE index. */
+export interface Cell {
+  x: number;
+  y: number;
+  c: number;
+}
+
+export interface GridHandle {
+  /** Replace the whole drawing (what's saved). */
+  load(cells: Cell[]): void;
+  /** Someone else's strokes: paint them with a little glow. */
+  apply(cells: Cell[]): void;
+  /** Where a cell is on screen, or null when it's off this screen. */
+  cellRect(x: number, y: number): { left: number; top: number; width: number; height: number } | null;
+}
+
+export interface DrawOptions {
+  tool: number; // a PALETTE index; 0 = eraser
+  onPaint: (cells: Cell[]) => void;
+  onCursor: (x: number, y: number) => void;
+}
+
+interface TileGridBackgroundProps {
+  ref?: React.Ref<GridHandle>;
+  /** Logged in: draw on the shared grid. Absent: the tap-to-toggle toy (nothing saved). */
+  draw?: DrawOptions | null;
+}
+
+type Engine = GridHandle & { setShared(on: boolean): void };
+
 /**
  * Canvas-rendered tile grid. A single <canvas> replaces ~1.5k DOM buttons:
  * state lives in typed arrays and only tiles being animated are stepped,
  * with the rAF loop sleeping whenever everything is at rest.
  */
-export const TileGridBackground: React.FC = () => {
+export const TileGridBackground: React.FC<TileGridBackgroundProps> = ({ ref, draw }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const engineRef = useRef<Engine | null>(null);
+  const drawRef = useRef(draw);
+  const shared = !!draw;
+
+  useEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      load: (cells) => engineRef.current?.load(cells),
+      apply: (cells) => engineRef.current?.apply(cells),
+      cellRect: (x, y) => engineRef.current?.cellRect(x, y) ?? null,
+    }),
+    []
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -39,7 +85,8 @@ export const TileGridBackground: React.FC = () => {
     let height = 0;
     let dpr = 1;
 
-    let target = new Uint8Array(0); // 1 = purple
+    let target: Uint8Array = new Uint8Array(0); // 1 = filled
+    let color: Uint8Array = new Uint8Array(0); // which PALETTE colour a filled tile shows
     let fill = new Float32Array(0);
     let glow = new Float32Array(0);
     let hover = new Float32Array(0);
@@ -47,10 +94,26 @@ export const TileGridBackground: React.FC = () => {
     let glowUntil = new Float64Array(0);
     const live = new Set<number>(); // tiles currently animating
 
+    // Shared mode: the drawing, by "x,y" from the centre tile. It outlives resizes.
+    let sharedMode = false;
+    const world = new Map<string, number>();
+    let stroke: { c: number; last: number } | null = null;
+    let lastCursor = -1;
+
     let hoverIdx = -1;
     let pressIdx = -1;
     let raf = 0;
     let last = 0;
+
+    const key = (x: number, y: number) => `${x},${y}`;
+    const midC = () => Math.floor(cols / 2);
+    const midR = () => Math.floor(rows / 2);
+    const toWorld = (i: number) => ({ x: (i % cols) - midC(), y: ((i / cols) | 0) - midR() });
+    const toIndex = (x: number, y: number) => {
+      const c = x + midC();
+      const r = y + midR();
+      return c < 0 || r < 0 || c >= cols || r >= rows ? -1 : r * cols + c;
+    };
 
     const indexAt = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
@@ -63,14 +126,17 @@ export const TileGridBackground: React.FC = () => {
     const tileColor = (i: number) => {
       const f = fill[i];
       const h = hover[i];
-      let R = PAPER_RGB[0] + (ACTIVE_RGB[0] - PAPER_RGB[0]) * f;
-      let G = PAPER_RGB[1] + (ACTIVE_RGB[1] - PAPER_RGB[1]) * f;
-      let B = PAPER_RGB[2] + (ACTIVE_RGB[2] - PAPER_RGB[2]) * f;
-      // hover: inactive tiles get a faint purple wash, active tiles brighten
+      const on = PALETTE[color[i] || 1].rgb;
+      let R = PAPER_RGB[0] + (on[0] - PAPER_RGB[0]) * f;
+      let G = PAPER_RGB[1] + (on[1] - PAPER_RGB[1]) * f;
+      let B = PAPER_RGB[2] + (on[2] - PAPER_RGB[2]) * f;
+      // hover: empty tiles get a faint wash of the colour you'd paint, filled tiles brighten
+      const tool = drawRef.current?.tool;
+      const washRgb = PALETTE[sharedMode ? tool || 4 : 1].rgb;
       const wash = 0.15 * h * (1 - f);
-      R += (ACTIVE_RGB[0] - R) * wash;
-      G += (ACTIVE_RGB[1] - G) * wash;
-      B += (ACTIVE_RGB[2] - B) * wash;
+      R += (washRgb[0] - R) * wash;
+      G += (washRgb[1] - G) * wash;
+      B += (washRgb[2] - B) * wash;
       const bright = 1 + 0.1 * h * f;
       return `rgb(${Math.min(255, R * bright) | 0},${Math.min(255, G * bright) | 0},${Math.min(255, B * bright) | 0})`;
     };
@@ -83,12 +149,11 @@ export const TileGridBackground: React.FC = () => {
       ctx.fillStyle = INACTIVE_COLOR;
       ctx.fillRect(0, 0, width, height);
 
-      // Base pass: all tiles at rest scale, batched by identical colour
+      // Base pass: all tiles at rest scale
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const i = r * cols + c;
-          const f = fill[i];
-          if (f < 0.002 && hover[i] < 0.002) continue; // already white
+          if (fill[i] < 0.002 && hover[i] < 0.002) continue; // already paper
           ctx.fillStyle = tileColor(i);
           ctx.fillRect(c * cw, r * ch, cw, ch);
         }
@@ -117,7 +182,7 @@ export const TileGridBackground: React.FC = () => {
         const cy = r * ch + ch / 2;
         const w = cw * scale;
         const h = ch * scale;
-        const rgb = target[i] ? GLOW_ACTIVE_RGB : GLOW_INACTIVE_RGB;
+        const rgb = target[i] ? PALETTE[color[i] || 1].rgb : GLOW_INACTIVE_RGB;
 
         ctx.save();
         if (scale < 1) {
@@ -179,6 +244,42 @@ export const TileGridBackground: React.FC = () => {
       raf = requestAnimationFrame(tick);
     };
 
+    /** Point tile i at colour c (0 = empty); it animates there. */
+    const setTile = (i: number, c: number, withGlow: boolean) => {
+      if (c) color[i] = c; // when emptying, keep the old colour so it fades out in it
+      target[i] = c ? 1 : 0;
+      if (withGlow) glowUntil[i] = performance.now() + GLOW_MS;
+      live.add(i);
+    };
+
+    /** What each tile should show right now: the saved drawing, or the decorative pattern. */
+    const wanted = (): Uint8Array => {
+      const want = new Uint8Array(cols * rows);
+      if (sharedMode) {
+        world.forEach((c, k) => {
+          const [x, y] = k.split(',').map(Number);
+          const i = toIndex(x, y);
+          if (i >= 0) want[i] = c;
+        });
+      } else {
+        generateDefaultHighlights(rows, cols).forEach((k) => {
+          const [r, c] = k.split(',').map(Number);
+          want[r * cols + c] = 1;
+        });
+      }
+      return want;
+    };
+
+    /** Move every tile to what it should show, animated (mode switch, a fresh load). */
+    const reproject = () => {
+      const want = wanted();
+      for (let i = 0; i < want.length; i++) {
+        const now = target[i] ? color[i] || 1 : 0;
+        if (now !== want[i]) setTile(i, want[i], false);
+      }
+      kick();
+    };
+
     const build = (force: boolean) => {
       const rect = canvas.getBoundingClientRect();
       const newCols = Math.max(10, Math.ceil(rect.width / TILE_SIZE));
@@ -193,11 +294,8 @@ export const TileGridBackground: React.FC = () => {
         cols = newCols;
         rows = newRows;
         const n = cols * rows;
-        target = new Uint8Array(n);
-        generateDefaultHighlights(rows, cols).forEach((key) => {
-          const [r, c] = key.split(',').map(Number);
-          target[r * cols + c] = 1;
-        });
+        color = wanted(); // sized for the new grid
+        target = color.map((c) => (c ? 1 : 0));
         fill = Float32Array.from(target);
         glow = new Float32Array(n);
         hover = new Float32Array(n);
@@ -206,6 +304,7 @@ export const TileGridBackground: React.FC = () => {
         live.clear();
         hoverIdx = -1;
         pressIdx = -1;
+        stroke = null;
       }
       draw();
     };
@@ -220,6 +319,86 @@ export const TileGridBackground: React.FC = () => {
     });
     ro.observe(canvas);
 
+    // ---- shared drawing -------------------------------------------------------------
+
+    const paint = (i: number, c: number, out: Cell[]) => {
+      const { x, y } = toWorld(i);
+      const k = key(x, y);
+      if ((world.get(k) ?? 0) === c) return;
+      if (c) world.set(k, c);
+      else world.delete(k);
+      setTile(i, c, true);
+      out.push({ x, y, c });
+    };
+
+    // Every tile on the straight line between two tiles, so a fast swipe leaves no gaps
+    const between = (a: number, b: number) => {
+      let c0 = a % cols;
+      let r0 = (a / cols) | 0;
+      const c1 = b % cols;
+      const r1 = (b / cols) | 0;
+      const dc = Math.abs(c1 - c0);
+      const dr = -Math.abs(r1 - r0);
+      const sc = c0 < c1 ? 1 : -1;
+      const sr = r0 < r1 ? 1 : -1;
+      let err = dc + dr;
+      const out: number[] = [];
+      for (;;) {
+        out.push(r0 * cols + c0);
+        if (c0 === c1 && r0 === r1) return out;
+        const e2 = 2 * err;
+        if (e2 >= dr) {
+          err += dr;
+          c0 += sc;
+        }
+        if (e2 <= dc) {
+          err += dc;
+          r0 += sr;
+        }
+      }
+    };
+
+    const reportCursor = (i: number) => {
+      if (i < 0 || i === lastCursor) return;
+      lastCursor = i;
+      const { x, y } = toWorld(i);
+      drawRef.current?.onCursor(x, y);
+    };
+
+    engineRef.current = {
+      load(cells) {
+        world.clear();
+        cells.forEach((cell) => cell.c && world.set(key(cell.x, cell.y), cell.c));
+        if (sharedMode) reproject();
+      },
+      apply(cells) {
+        cells.forEach((cell) => {
+          if (cell.c) world.set(key(cell.x, cell.y), cell.c);
+          else world.delete(key(cell.x, cell.y));
+          const i = toIndex(cell.x, cell.y);
+          if (sharedMode && i >= 0) setTile(i, cell.c, true);
+        });
+        kick();
+      },
+      cellRect(x, y) {
+        const i = toIndex(x, y);
+        if (i < 0) return null;
+        const rect = canvas.getBoundingClientRect();
+        const cw = rect.width / cols;
+        const ch = rect.height / rows;
+        return { left: rect.left + (i % cols) * cw, top: rect.top + ((i / cols) | 0) * ch, width: cw, height: ch };
+      },
+      setShared(on) {
+        if (on === sharedMode) return;
+        sharedMode = on;
+        stroke = null;
+        canvas.style.touchAction = on ? 'none' : ''; // dragging paints instead of scrolling
+        reproject();
+      },
+    };
+
+    // ---- pointer ------------------------------------------------------------------------
+
     const setHover = (next: number) => {
       if (next === hoverIdx) return;
       if (hoverIdx >= 0) live.add(hoverIdx);
@@ -229,8 +408,17 @@ export const TileGridBackground: React.FC = () => {
     };
 
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return;
-      setHover(indexAt(e.clientX, e.clientY));
+      const i = indexAt(e.clientX, e.clientY);
+      if (e.pointerType !== 'touch') setHover(i);
+      if (!sharedMode) return;
+      reportCursor(i);
+      if (stroke && i >= 0 && i !== stroke.last) {
+        const out: Cell[] = [];
+        between(stroke.last, i).forEach((j) => paint(j, stroke!.c, out));
+        stroke.last = i;
+        if (out.length) drawRef.current?.onPaint(out);
+        kick();
+      }
     };
     const onLeave = () => {
       setHover(-1);
@@ -242,12 +430,26 @@ export const TileGridBackground: React.FC = () => {
     };
     const onDown = (e: PointerEvent) => {
       pressIdx = indexAt(e.clientX, e.clientY);
-      if (pressIdx >= 0) {
-        live.add(pressIdx);
-        kick();
+      if (pressIdx < 0) return;
+      live.add(pressIdx);
+      const d = drawRef.current;
+      if (sharedMode && d) {
+        canvas.setPointerCapture(e.pointerId);
+        // Starting on a tile that's already your colour erases instead, like tapping it off
+        const { x, y } = toWorld(pressIdx);
+        const c = d.tool && world.get(key(x, y)) === d.tool ? 0 : d.tool;
+        stroke = { c, last: pressIdx };
+        const out: Cell[] = [];
+        paint(pressIdx, c, out);
+        if (out.length) d.onPaint(out);
+        lastCursor = -1;
+        reportCursor(pressIdx);
       }
+      kick();
     };
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      stroke = null;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
       if (pressIdx >= 0) {
         live.add(pressIdx);
         pressIdx = -1;
@@ -255,11 +457,10 @@ export const TileGridBackground: React.FC = () => {
       }
     };
     const onClick = (e: MouseEvent) => {
+      if (sharedMode) return; // painting already happened on pointerdown
       const i = indexAt(e.clientX, e.clientY);
       if (i < 0) return;
-      target[i] = target[i] ? 0 : 1;
-      glowUntil[i] = performance.now() + GLOW_MS;
-      live.add(i);
+      setTile(i, target[i] ? 0 : 1, true);
       kick();
     };
 
@@ -271,6 +472,7 @@ export const TileGridBackground: React.FC = () => {
     canvas.addEventListener('click', onClick);
 
     return () => {
+      engineRef.current = null;
       cancelAnimationFrame(raf);
       cancelAnimationFrame(resizeRaf);
       ro.disconnect();
@@ -282,6 +484,10 @@ export const TileGridBackground: React.FC = () => {
       canvas.removeEventListener('click', onClick);
     };
   }, []);
+
+  useEffect(() => {
+    engineRef.current?.setShared(shared);
+  }, [shared]);
 
   return (
     <canvas

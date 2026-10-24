@@ -1,6 +1,7 @@
 import React from 'react';
 
-export const HeroContent: React.FC = () => {
+/** compact: signed in, so only the title (the "go away" note is for strangers, and the drawing needs the room). */
+export const HeroContent: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   return (
     <>
       {/* Main Heading (Outfit) */}
@@ -9,9 +10,9 @@ export const HeroContent: React.FC = () => {
       </h1>
 
       {/* Subtitle / Description (Cardo) */}
-      <p className="text-subtitle-sm sm:text-xl md:text-subtitle text-brand-black leading-relaxed font-body mb-8 max-w-[620px] select-none">
+      {!compact && <p className="text-subtitle-sm sm:text-xl md:text-subtitle text-brand-black leading-relaxed font-body mb-8 max-w-[620px] select-none">
         This website is made for someone <span className="italic font-normal">special</span>, and only they can get in, not others. If you belong to <span className="italic font-normal">others</span>, please go away, you can't get in (unless you're an hacker).
-      </p>
+      </p>}
     </>
   );
 };

@@ -1,5 +1,6 @@
 // Data layer: talks to Supabase directly, row-level security decides who sees what.
 import type { PostgrestError } from '@supabase/supabase-js';
+import type { Cell } from '../components/background/TileGridBackground';
 import { supabase } from '../lib/supabase';
 import type { IntroDoc } from '../features/intro/doc';
 import type { Banner, LetterLook } from '../features/letters/banner';
@@ -406,6 +407,24 @@ export const groupsApi = {
   },
   remove: async (id: number): Promise<void> => {
     const { error } = await supabase.from('letter_groups').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+
+// ---- the gate's shared grid (0011) ------------------------------------------------------
+
+export const gateApi = {
+  load: async (): Promise<Cell[]> => {
+    const { data, error } = await supabase.rpc('get_gate');
+    if (error) throw error;
+    return ((data ?? []) as { x: number; y: number; color: number }[]).map((r) => ({ x: r.x, y: r.y, c: r.color }));
+  },
+  paint: async (cells: Cell[]): Promise<void> => {
+    const { error } = await supabase.rpc('paint_cells', { p_cells: cells });
+    if (error) throw error;
+  },
+  clear: async (): Promise<void> => {
+    const { error } = await supabase.rpc('clear_gate');
     if (error) throw error;
   },
 };
