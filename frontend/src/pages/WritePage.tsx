@@ -5,6 +5,10 @@ import { groupsApi, isAuthError, lettersApi, logout as apiLogout, otherName, typ
 import { LetterSettings } from '../features/letters/write/LetterSettings';
 import { GroupsSheet } from '../features/letters/write/GroupsSheet';
 import { useToast } from '../components/common/Toast';
+import { useConfirm } from '../components/common/useConfirm';
+import { MediaPicker } from '../features/media/MediaPicker';
+import { LetterBanner } from '../features/letters/LetterBanner';
+import type { Banner } from '../features/letters/banner';
 
 // BlockNote is big; load it only once a letter is open for editing
 const LetterEditor = lazy(() => import('../features/letters/LetterEditor'));
@@ -25,11 +29,14 @@ export const WritePage: React.FC = () => {
   const [groups, setGroups] = useState<LetterGroup[]>([]);
   const [reader, setReader] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [body, setBody] = useState<{ id: number; doc: unknown[] } | null>(null);
+  const [body, setBody] = useState<{ id: number; doc: unknown[]; banner: Banner | null } | null>(null);
+  const [bannerPicker, setBannerPicker] = useState(false);
+  const [saveFlash, setSaveFlash] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showSettings, setShowSettings] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [unsaved, setUnsaved] = useState(0);
   const { show: showToast, node: toastNode } = useToast();
+  const { confirm, dialog } = useConfirm();
 
   // ---- debounced saving: one timer per thing being saved, flushed on switch/leave ----
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -50,8 +57,8 @@ export const WritePage: React.FC = () => {
       timers.current.delete(key);
       const job = jobs.current.get(key);
       jobs.current.delete(key);
-      if (!job) return;
-      job()
+      if (!job) return Promise.resolve();
+      return job()
         .catch(fail)
         .finally(() => setUnsaved(jobs.current.size));
     },
@@ -65,7 +72,7 @@ export const WritePage: React.FC = () => {
     setUnsaved(jobs.current.size);
   };
 
-  const flushAll = useCallback(() => [...jobs.current.keys()].forEach(run), [run]);
+  const flushAll = useCallback(() => Promise.all([...jobs.current.keys()].map(run)), [run]);
 
   useEffect(() => {
     const onHide = () => document.visibilityState === 'hidden' && flushAll();
@@ -100,7 +107,7 @@ export const WritePage: React.FC = () => {
     let cancelled = false;
     lettersApi
       .body(selectedId)
-      .then((doc) => !cancelled && setBody({ id: selectedId, doc }))
+      .then(({ doc, banner }) => !cancelled && setBody({ id: selectedId, doc, banner }))
       .catch(fail);
     return () => {
       cancelled = true;
@@ -148,7 +155,9 @@ export const WritePage: React.FC = () => {
   };
 
   const remove = async () => {
-    if (!selected || !window.confirm(`Delete "${selected.title}"? This can't be undone.`)) return;
+    if (!selected) return;
+    const ok = await confirm({ title: `Delete "${selected.title || 'untitled'}"?`, body: "This can't be undone.", confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true });
+    if (!ok) return;
     jobs.current.delete(`meta:${selected.id}`);
     jobs.current.delete(`body:${selected.id}`);
     try {
@@ -163,6 +172,8 @@ export const WritePage: React.FC = () => {
 
   const unlock = async () => {
     if (!selected) return;
+    const ok = await confirm({ title: `Unlock this for ${reader ?? 'them'}?`, body: "They can open it right away. It can't be locked again.", confirmLabel: 'Unlock' });
+    if (!ok) return;
     try {
       await lettersApi.unlock(selected.id);
       setLetters((ls) => ls?.map((l) => (l.id === selected.id ? { ...l, unlockedByWriter: true } : l)) ?? ls);
@@ -174,7 +185,8 @@ export const WritePage: React.FC = () => {
 
   const send = async () => {
     if (!selected) return;
-    if (!window.confirm(`Send "${selected.title || 'untitled'}" to ${reader ?? 'them'}? It shows up in their letters right away.`)) return;
+    const ok = await confirm({ title: `Send to ${reader ?? 'them'}?`, body: `"${selected.title || 'untitled'}" shows up in their letters right away.`, confirmLabel: 'Send ♡' });
+    if (!ok) return;
     flushAll();
     try {
       const publishedAt = await lettersApi.publish(selected.id);
@@ -196,9 +208,19 @@ export const WritePage: React.FC = () => {
     }
   };
 
-  const saveNow = () => {
-    flushAll();
-    showToast(selected?.publishedAt ? 'saved ✓ (changes show up for them too)' : 'draft saved ✓');
+  const saveNow = async () => {
+    setSaveFlash('saving');
+    await flushAll();
+    setSaveFlash('saved');
+    setTimeout(() => setSaveFlash('idle'), 1800);
+    showToast(selected?.publishedAt ? 'saved ✓ changes show up for them too' : 'draft saved ✓');
+  };
+
+  const setBanner = (banner: Banner | null) => {
+    if (!body) return;
+    const id = body.id;
+    setBody({ ...body, banner });
+    schedule(`banner:${id}`, () => lettersApi.saveBanner(id, banner), 400);
   };
 
   const logout = async () => {
@@ -334,9 +356,12 @@ export const WritePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={saveNow}
-                    className="h-9 px-3 rounded-full bg-white/[0.08] text-white/85 hover:bg-white/15 font-mono text-[10px] tracking-wider cursor-pointer"
+                    disabled={saveFlash === 'saving'}
+                    className={`h-9 px-3 rounded-full font-mono text-[10px] tracking-wider cursor-pointer transition-colors ${
+                      saveFlash === 'saved' ? 'bg-brand-cyan text-black' : 'bg-white/[0.08] text-white/85 hover:bg-white/15'
+                    }`}
                   >
-                    SAVE
+                    {saveFlash === 'saving' ? 'SAVING…' : saveFlash === 'saved' ? 'SAVED ✓' : 'SAVE'}
                   </button>
                   {!selected.publishedAt && (
                     <button
@@ -365,6 +390,20 @@ export const WritePage: React.FC = () => {
               {showSettings && <div className="lg:hidden max-w-[720px] mx-auto px-5 pt-5 pb-2 border-b border-white/5">{settings}</div>}
 
               <div className="max-w-[720px] mx-auto px-5 pt-8 pb-24">
+                {body?.id === selected.id &&
+                  (body.banner ? (
+                    <div className="mb-8">
+                      <LetterBanner banner={body.banner} onChange={setBanner} onChangeImage={() => setBannerPicker(true)} onRemove={() => setBanner(null)} />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setBannerPicker(true)}
+                      className="mb-3 h-8 px-3 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white font-mono text-[10px] tracking-[0.2em] cursor-pointer"
+                    >
+                      + ADD BANNER
+                    </button>
+                  ))}
                 <input
                   id="letter-title"
                   value={selected.title === 'untitled' ? '' : selected.title}
@@ -401,7 +440,20 @@ export const WritePage: React.FC = () => {
       </main>
 
       {showGroups && <GroupsSheet groups={groups} onChange={setGroups} onClose={() => setShowGroups(false)} />}
+      {bannerPicker && (
+        <MediaPicker
+          title="Letter banner"
+          tabs={['upload', 'gifs', 'link']}
+          folder="letters"
+          onClose={() => setBannerPicker(false)}
+          onPick={(m) => {
+            setBanner({ src: m.src, height: body?.banner?.height ?? 'md', focus: body?.banner?.focus ?? 50 });
+            setBannerPicker(false);
+          }}
+        />
+      )}
       {toastNode}
+      {dialog}
     </div>
   );
 };

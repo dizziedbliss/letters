@@ -119,3 +119,28 @@
 .bn-root .bn-suggestion-menu .bn-ak-suggestion-menu-item-section:last-child:not(:first-child) {
   display: none !important;
 }
+
+/* Images: no frame or tinted box, just soft corners (BlockNote's dark file frame looked boxy) */
+.letter-body .bn-visual-media-wrapper,
+.letter-body .bn-file-block-content-wrapper,
+.letter-body [data-content-type='image'] .bn-file-block-content-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.letter-body .bn-visual-media {
+  border-radius: 14px;
+}
+/* BlockNote paints a blue box over the "selected" block. Reading: hide it entirely
+   (a read-only view still auto-selects an image that comes first). Writing: thin cyan ring. */
+.letter-body .bn-editor[contenteditable='false'] .bn-block-content.ProseMirror-selectednode > ::after,
+.letter-body .bn-editor[contenteditable='false'] .ProseMirror-selectednode > .bn-block-content > ::after,
+.letter-body .bn-editor[contenteditable='false'] .bn-block-content .ProseMirror-selectednode::after {
+  display: none !important;
+}
+.letter-body .bn-editor[contenteditable='true'] .bn-block-content.ProseMirror-selectednode > ::after,
+.letter-body .bn-editor[contenteditable='true'] .ProseMirror-selectednode > .bn-block-content > ::after {
+  background-color: rgba(0, 216, 255, 0.06) !important;
+  box-shadow: inset 0 0 0 2px rgba(0, 216, 255, 0.7) !important;
+  border-radius: 14px !important;
+}

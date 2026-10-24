@@ -166,7 +166,7 @@ function rpc(name: string, args: Row, me: string | null): Response {
       persist();
     }
     const body = db.letter_bodies.find((b) => b.letter_id === l.id);
-    return json([{ id: l.id, title: l.title, greeting: l.greeting, doc: body?.doc ?? [], opened_at: o.opened_at }]);
+    return json([{ id: l.id, title: l.title, greeting: l.greeting, doc: body?.doc ?? [], banner: body?.banner ?? null, opened_at: o.opened_at }]);
   }
 
   if (name === 'unlock_letter') {
@@ -274,7 +274,7 @@ function withDefaults(table: string, r: Row, me: string): Row {
     const nextId = Math.max(0, ...db.letter_groups.map((g) => g.id as number)) + 1;
     return { id: nextId, owner_id: me, quota: null, period: 'week', default_for: null, created_at: now, ...r };
   }
-  if (table === 'letter_bodies') return { doc: [], updated_at: now, ...r };
+  if (table === 'letter_bodies') return { doc: [], banner: null, updated_at: now, ...r };
   if (table === 'intro_pages') return { updated_by: me, published_at: now, ...r };
   if (table === 'intro_drafts') return { updated_at: now, ...r };
   return r;

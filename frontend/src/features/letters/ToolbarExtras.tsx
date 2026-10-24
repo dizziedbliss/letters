@@ -3,54 +3,8 @@ import { useActiveStyles, useBlockNoteEditor, useComponentsContext, usePortalEle
 import type { letterSchema } from './schema';
 import { LETTER_FONTS, LETTER_SIZES } from './fonts';
 
-type LetterEditor = ReturnType<typeof useBlockNoteEditor<typeof letterSchema.blockSchema, typeof letterSchema.inlineContentSchema, typeof letterSchema.styleSchema>>;
-
 const useLetterEditor = () =>
   useBlockNoteEditor<typeof letterSchema.blockSchema, typeof letterSchema.inlineContentSchema, typeof letterSchema.styleSchema>();
-
-const clearCustom = (editor: LetterEditor) => {
-  const active = editor.getActiveStyles();
-  const remove: Record<string, unknown> = {};
-  for (const k of ['font', 'size', 'ink', 'glow'] as const) if (k in active) remove[k] = active[k as keyof typeof active];
-  if (Object.keys(remove).length) editor.removeStyles(remove as never);
-};
-
-/** Named looks: one tap applies a combo of styles to the selection. */
-const LOOKS: { name: string; apply: Record<string, string | boolean> }[] = [
-  { name: 'Handwritten', apply: { font: '"Caveat", cursive', size: '24px' } },
-  { name: 'Shout', apply: { font: '"Anton", sans-serif', size: '32px' } },
-  { name: 'Love note', apply: { font: '"Pacifico", cursive', ink: '#ff8fb1' } },
-  { name: 'Whisper', apply: { size: '14px', ink: '#9a9aa5', italic: true } },
-  { name: 'Typewriter', apply: { font: '"Courier Prime", monospace' } },
-  { name: 'Highlighter', apply: { glow: 'rgba(0, 216, 255, 0.35)' } },
-  { name: 'Purple glow', apply: { ink: '#b388ff', glow: 'rgba(97, 0, 216, 0.35)' } },
-];
-
-export const LooksSelect: React.FC = () => {
-  const editor = useLetterEditor();
-  const Components = useComponentsContext()!;
-  const portalElement = usePortalElement();
-  if (!editor.isEditable) return null;
-  return (
-    <Components.FormattingToolbar.Select
-      className="bn-select letter-looks"
-      portalElement={portalElement}
-      items={[
-        { text: 'Looks ✦', icon: null, isSelected: true, onClick: () => {} },
-        ...LOOKS.map((l) => ({
-          text: l.name,
-          icon: null,
-          isSelected: false,
-          onClick: () => {
-            clearCustom(editor);
-            editor.addStyles(l.apply as never);
-          },
-        })),
-        { text: 'Clear looks', icon: null, isSelected: false, onClick: () => clearCustom(editor) },
-      ]}
-    />
-  );
-};
 
 export const FontSelect: React.FC = () => {
   const editor = useLetterEditor();

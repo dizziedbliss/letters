@@ -52,7 +52,7 @@ const IntroBody: React.FC<IntroBodyProps> = ({ content, editable, ink, onChange,
         onChange={() => onChange?.(editor.document as ContentBlock[])}
       >
         {editable && <RichToolbar />}
-        {editable && <SlashMenu />}
+        {editable && <SlashMenu folder="intro" />}
       </BlockNoteView>
     </div>
   );

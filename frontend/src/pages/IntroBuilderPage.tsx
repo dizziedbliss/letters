@@ -1,15 +1,15 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthError, publishTheirPage, saveTheirDraft, theirBuilderState } from '../utils/api';
-import { CONTENT_Z, DESIGN_WIDTH, MAX_SCALE, stickersBottom, ensureLettersButton, type Banner, lettersButtonBlock, newId, parseDoc, starterDoc, themeFor, type ContentBlock, type IntroDoc, type Sticker } from '../features/intro/doc';
+import { CONTENT_Z, DESIGN_WIDTH, MAX_SCALE, stickersBottom, ensureLettersButton, lettersButtonBlock, newId, parseDoc, starterDoc, themeFor, type ContentBlock, type IntroDoc, type Sticker } from '../features/intro/doc';
 import { useDocHistory } from '../features/intro/editor/useDocHistory';
 import { useDesignScale } from '../features/intro/useDesignScale';
 import { StickerLayer } from '../features/intro/stickers/StickerLayer';
 import { PagePanel, StickerPalette } from '../features/intro/editor/Palettes';
 import { Sheet } from '../features/intro/editor/ui';
 import { useMediaUrl } from '../features/intro/useMediaUrl';
-import { BannerView } from '../features/intro/BannerView';
 import { useToast } from '../components/common/Toast';
+import { useConfirm } from '../components/common/useConfirm';
 import type { IntroEditor } from '../features/intro/IntroBody';
 
 const IntroBody = lazy(() => import('../features/intro/IntroBody'));
@@ -25,6 +25,7 @@ const topBtn = 'h-9 px-3 rounded-full font-mono text-[11px] tracking-wider trans
 export const IntroBuilderPage: React.FC = () => {
   const navigate = useNavigate();
   const { show: showToast, node: toastNode } = useToast();
+  const { confirm, dialog } = useConfirm();
   const history = useDocHistory(); // background + stickers (content lives in the editor)
   const doc = history.doc;
   const [name, setName] = useState<string | null>(null);
@@ -131,7 +132,7 @@ export const IntroBuilderPage: React.FC = () => {
 
   const publish = async () => {
     if (!composed || publishing) return;
-    if (!window.confirm(`Publish this page for ${name ?? 'them'}? They'll see it straight away.`)) return;
+    if (!(await confirm({ title: `Publish for ${name ?? 'them'}?`, body: "They'll see this page straight away.", confirmLabel: 'Publish' }))) return;
     let finalContent = composed.content;
     if (!finalContent.some((b) => b.type === 'lettersButton')) {
       // the letters button can't go missing: put it back before publishing
@@ -154,8 +155,8 @@ export const IntroBuilderPage: React.FC = () => {
     }
   };
 
-  const back = () => {
-    if (unsaved && !window.confirm('Still saving, leave anyway?')) return;
+  const back = async () => {
+    if (unsaved && !(await confirm({ title: 'Still saving', body: 'Leave anyway? The last few changes might not be saved.', confirmLabel: 'Leave', danger: true }))) return;
     navigate('/write');
   };
 
@@ -169,17 +170,12 @@ export const IntroBuilderPage: React.FC = () => {
     history.update((d) => ({ ...d, background }), background.kind === 'color' ? 'bg-color' : undefined);
   };
 
-  const setBanner = (banner: Banner | null, key?: string) => {
-    lastArea.current = 'page';
-    history.update((d) => ({ ...d, banner }), key);
-  };
-
   const panels = (
     <>
-      <PagePanel doc={doc} setBackground={setBackground} setBanner={setBanner} onError={(m) => showToast(m, 'error')} />
+      <PagePanel doc={doc} setBackground={setBackground} />
       <div className="h-px bg-white/10 my-5" />
       <p className="font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-3">Stickers</p>
-      <StickerPalette onAdd={addSticker} onError={(m) => showToast(m, 'error')} />
+      <StickerPalette onAdd={addSticker} />
     </>
   );
 
@@ -257,7 +253,6 @@ export const IntroBuilderPage: React.FC = () => {
                 backgroundSize: grid ? '16px 16px' : undefined,
               }}
             >
-              {doc.banner && <BannerView banner={doc.banner} />}
               <div className="relative" style={{ zIndex: CONTENT_Z }}>
               <Suspense fallback={<p className="font-body italic opacity-50">loading editor...</p>}>
                 <IntroBody
@@ -295,15 +290,16 @@ export const IntroBuilderPage: React.FC = () => {
 
       {sheet === 'page' && (
         <Sheet title="Page" onClose={() => setSheet(null)}>
-          <PagePanel doc={doc} setBackground={setBackground} setBanner={setBanner} onError={(m) => showToast(m, 'error')} />
+          <PagePanel doc={doc} setBackground={setBackground} />
         </Sheet>
       )}
       {sheet === 'stickers' && (
         <Sheet title="Stickers" onClose={() => setSheet(null)}>
-          <StickerPalette onAdd={addSticker} onError={(m) => showToast(m, 'error')} />
+          <StickerPalette onAdd={addSticker} />
         </Sheet>
       )}
       {toastNode}
+      {dialog}
     </div>
   );
 };

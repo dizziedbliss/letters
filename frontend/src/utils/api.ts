@@ -2,6 +2,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { IntroDoc } from '../features/intro/doc';
+import type { Banner } from '../features/letters/banner';
 
 export interface Letter {
   id: number;
@@ -112,6 +113,7 @@ export interface OpenedLetter {
   title: string;
   greeting: string;
   doc: unknown[];
+  banner: Banner | null;
   openedAt: string;
 }
 
@@ -135,7 +137,7 @@ export async function openLetter(id: number): Promise<OpenedLetter> {
     throw error;
   }
   const row = (data as Record<string, never>[])[0];
-  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], openedAt: row.opened_at };
+  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], banner: row.banner ?? null, openedAt: row.opened_at };
 }
 
 /** id -> display name for the two accounts. */
@@ -303,10 +305,17 @@ export const lettersApi = {
     return data as unknown as Omit<MyLetter, 'openedAt'>;
   },
 
-  body: async (id: number): Promise<unknown[]> => {
-    const { data, error } = await supabase.from('letter_bodies').select('doc').eq('letter_id', id).maybeSingle();
+  body: async (id: number): Promise<{ doc: unknown[]; banner: Banner | null }> => {
+    const { data, error } = await supabase.from('letter_bodies').select('doc, banner').eq('letter_id', id).maybeSingle();
     if (error) throw error;
-    return (data?.doc as unknown[]) ?? [];
+    return { doc: (data?.doc as unknown[]) ?? [], banner: (data?.banner as Banner | null) ?? null };
+  },
+
+  saveBanner: async (id: number, banner: Banner | null): Promise<void> => {
+    const { error } = await supabase
+      .from('letter_bodies')
+      .upsert({ letter_id: id, banner, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
 
   saveBody: async (id: number, doc: unknown[]): Promise<void> => {

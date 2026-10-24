@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { LockedError, openLetter, otherName, type OpenedLetter } from '../utils/api';
 import { lockText } from '../features/letters/lock';
 import { useNow } from '../features/letters/useNow';
+import { LetterBanner } from '../features/letters/LetterBanner';
 
 // BlockNote is big; only load it when a letter is actually being read
 const LetterBody = lazy(() => import('../features/letters/LetterBody'));
@@ -71,6 +72,11 @@ export const LetterReadPage: React.FC = () => {
 
         {state.kind === 'open' && (
           <article className="animate-fade-in">
+            {state.letter.banner && (
+              <div className="-mx-2 sm:mx-0 mb-8">
+                <LetterBanner banner={state.letter.banner} />
+              </div>
+            )}
             <h1 className="font-heading font-medium text-4xl sm:text-5xl tracking-tight leading-tight break-words">
               {state.letter.title}
             </h1>

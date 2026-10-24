@@ -37,7 +37,7 @@ const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange }) => {
       className="letter-body letter-editor"
     >
       <RichToolbar />
-      <SlashMenu />
+      <SlashMenu folder="letters" />
     </BlockNoteView>
   );
 };

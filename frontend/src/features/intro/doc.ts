@@ -25,14 +25,6 @@ export interface Sticker {
   z: number; // order among stickers (newest on top)
 }
 
-/** Optional header image across the top of the page. */
-export interface Banner {
-  src: string; // "storage:", "asset:", or a URL (a KLIPY GIF works too)
-  height: 'sm' | 'md' | 'lg';
-  focus: number; // 0-100: which part of the image stays in view (vertical)
-}
-
-export const BANNER_PX = { sm: 120, md: 170, lg: 230 } as const;
 
 export type Background =
   | { kind: 'preset'; value: 'dark' | 'paper' | 'purple' }
@@ -45,7 +37,6 @@ export type ContentBlock = { type: string; props?: Record<string, unknown>; cont
 export interface IntroDoc {
   version: 2;
   background: Background;
-  banner?: Banner | null;
   content: ContentBlock[];
   stickers: Sticker[];
 }
@@ -138,8 +129,7 @@ export function parseDoc(raw: unknown): IntroDoc | null {
   const stickers = Array.isArray(d.stickers) ? (d.stickers as Sticker[]) : [];
 
   if (d.version === 2 && Array.isArray(d.content)) {
-    const banner = d.banner && typeof d.banner === 'object' && (d.banner as Banner).src ? (d.banner as Banner) : null;
-    return { version: 2, background, banner, stickers, content: ensureLettersButton(d.content as ContentBlock[]) };
+    return { version: 2, background, stickers, content: ensureLettersButton(d.content as ContentBlock[]) };
   }
   if (d.version === 1 && Array.isArray(d.blocks)) {
     const content = (d.blocks as V1Block[]).filter((b) => b && b.props).flatMap(convertV1Block);

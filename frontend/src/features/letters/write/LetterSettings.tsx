@@ -99,7 +99,7 @@ export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters,
             ) : (
               <button
                 type="button"
-                onClick={() => window.confirm(`Unlock this for ${reader ?? 'them'} now? It can't be locked again.`) && onUnlock()}
+                onClick={onUnlock}
                 className="h-10 px-4 rounded-xl bg-brand-cyan text-black font-mono text-[11px] tracking-wider font-bold cursor-pointer hover:shadow-[0_0_16px_rgba(0,216,255,0.5)]"
               >
                 UNLOCK NOW

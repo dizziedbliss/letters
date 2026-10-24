@@ -17,6 +17,18 @@ select set_config('request.jwt.claim.sub', :'her', false) \gset
 \echo '--- expect: intro/page-pic.webp and letters/opened-pic.webp only (NOT locked-pic)'
 select name from storage.objects order by name;
 
+\echo '===== banners ====='
+reset role;
+insert into storage.objects (bucket_id, name, owner_id) values ('intro-media', 'letters/locked-banner.webp', :'max'), ('intro-media', 'letters/open-banner.webp', :'max');
+update letter_bodies set banner = '{"src":"storage:letters/locked-banner.webp","height":"md","focus":50}' where letter_id = 11;
+update letter_bodies set banner = '{"src":"storage:letters/open-banner.webp","height":"md","focus":50}' where letter_id = 1;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'her', false) \gset
+\echo '--- banner of the opened letter visible, locked letter''s banner NOT'
+select name from storage.objects where name like '%banner%' order by name;
+\echo '--- open_letter returns the banner (expect open-banner src)'
+select banner ->> 'src' as banner_src from open_letter(1);
+
 \echo '===== media as MAX (uploader sees all three) ====='
 select set_config('request.jwt.claim.sub', :'max', false) \gset
 select name from storage.objects order by name;

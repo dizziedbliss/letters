@@ -1,7 +1,6 @@
-import React, { useRef, useState } from 'react';
-import type { Background, Banner, IntroDoc, Sticker } from '../doc';
-import { uploadMedia } from '../../../lib/media';
-import { GifPicker } from '../../media/GifPicker';
+import React, { useState } from 'react';
+import type { Background, IntroDoc, Sticker } from '../doc';
+import { MediaPicker } from '../../media/MediaPicker';
 import { Chip, Row } from './ui';
 
 type NewSticker = Pick<Sticker, 'kind' | 'value'> & { width?: number };
@@ -14,46 +13,10 @@ const PRESETS: { value: 'dark' | 'paper' | 'purple'; label: string; swatch: stri
 
 const sectionTitle = 'font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-2';
 
-/** Background: presets, any colour, or an uploaded image. */
-export const PagePanel: React.FC<{
-  doc: IntroDoc;
-  setBackground: (b: Background) => void;
-  setBanner: (b: Banner | null, key?: string) => void;
-  onError: (m: string) => void;
-}> = ({ doc, setBackground, setBanner, onError }) => {
+/** Background: a preset, any colour, or an image (upload, GIF or link). */
+export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background) => void }> = ({ doc, setBackground }) => {
   const bg = doc.background;
-  const banner = doc.banner ?? null;
-  const file = useRef<HTMLInputElement>(null);
-  const bannerFile = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [gifFor, setGifFor] = useState<'background' | 'banner' | null>(null);
-  const [bannerLink, setBannerLink] = useState('');
-
-  const putBanner = (src: string) => setBanner({ src, height: banner?.height ?? 'md', focus: banner?.focus ?? 50 });
-
-  const uploadBanner = async (f: File | undefined) => {
-    if (!f) return;
-    setUploading(true);
-    try {
-      putBanner(await uploadMedia(f, 'intro'));
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const upload = async (f: File | undefined) => {
-    if (!f) return;
-    setUploading(true);
-    try {
-      setBackground({ kind: 'image', value: await uploadMedia(f, 'intro') });
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
+  const [picking, setPicking] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -84,70 +47,19 @@ export const PagePanel: React.FC<{
             className="absolute inset-0 opacity-0 cursor-pointer"
           />
         </label>
-        <Chip active={bg.kind === 'image'} onClick={() => file.current?.click()}>
-          {uploading ? 'UPLOADING…' : bg.kind === 'image' ? 'CHANGE IMAGE' : 'IMAGE'}
+        <Chip active={bg.kind === 'image'} onClick={() => setPicking(true)}>
+          {bg.kind === 'image' ? 'CHANGE IMAGE' : 'IMAGE'}
         </Chip>
-        <Chip onClick={() => setGifFor('background')}>GIF</Chip>
-        <input ref={file} type="file" accept="image/*" hidden onChange={(e) => upload(e.target.files?.[0])} />
       </Row>
-
-      <div className="h-px bg-white/10 !my-5" />
-      <p className={sectionTitle}>Banner (optional)</p>
-      <Row label="Image">
-        <Chip onClick={() => bannerFile.current?.click()}>{uploading ? 'UPLOADING…' : 'UPLOAD'}</Chip>
-        <Chip onClick={() => setGifFor('banner')}>GIF</Chip>
-        {banner && <Chip onClick={() => setBanner(null)}><span className="text-rose-300">REMOVE</span></Chip>}
-        <input ref={bannerFile} type="file" accept="image/*" hidden onChange={(e) => uploadBanner(e.target.files?.[0])} />
-      </Row>
-      <div className="flex gap-2 pl-16">
-        <input
-          value={bannerLink}
-          onChange={(e) => setBannerLink(e.target.value)}
-          placeholder="or paste an image link"
-          className="flex-1 min-w-0 h-10 bg-white/8 rounded-xl px-3 outline-none font-body text-base text-white placeholder:text-white/30"
-        />
-        <Chip
-          disabled={!/^https?:\/\//.test(bannerLink.trim())}
-          onClick={() => {
-            putBanner(bannerLink.trim());
-            setBannerLink('');
-          }}
-        >
-          SET
-        </Chip>
-      </div>
-      {banner && (
-        <>
-          <Row label="Height">
-            {(['sm', 'md', 'lg'] as const).map((h) => (
-              <Chip key={h} active={banner.height === h} onClick={() => setBanner({ ...banner, height: h })}>
-                {h === 'sm' ? 'SLIM' : h === 'md' ? 'MEDIUM' : 'TALL'}
-              </Chip>
-            ))}
-          </Row>
-          <Row label="Focus">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={banner.focus}
-              onChange={(e) => setBanner({ ...banner, focus: Number(e.target.value) }, 'banner-focus')}
-              className="w-44 accent-[#00D8FF]"
-              aria-label="which part of the banner shows"
-            />
-            <span className="font-mono text-[10px] text-white/40">{banner.focus < 34 ? 'TOP' : banner.focus > 66 ? 'BOTTOM' : 'MIDDLE'}</span>
-          </Row>
-        </>
-      )}
-
-      {gifFor && (
-        <GifPicker
-          only="gifs"
-          onClose={() => setGifFor(null)}
-          onPick={(g) => {
-            if (gifFor === 'background') setBackground({ kind: 'image', value: g.url });
-            else putBanner(g.url);
-            setGifFor(null);
+      {picking && (
+        <MediaPicker
+          title="Background"
+          tabs={['upload', 'gifs', 'link']}
+          folder="intro"
+          onClose={() => setPicking(false)}
+          onPick={(m) => {
+            setBackground({ kind: 'image', value: m.src });
+            setPicking(false);
           }}
         />
       )}
@@ -155,69 +67,31 @@ export const PagePanel: React.FC<{
   );
 };
 
-/** Stickers: KLIPY search, an uploaded image, or a pasted image/GIF link. */
-export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void; onError: (m: string) => void }> = ({ onAdd, onError }) => {
-  const file = useRef<HTMLInputElement>(null);
-  const [link, setLink] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [klipyOpen, setKlipyOpen] = useState(false);
-
-  const upload = async (f: File | undefined) => {
-    if (!f) return;
-    setUploading(true);
-    try {
-      onAdd({ kind: 'image', value: await uploadMedia(f, 'intro'), width: 140 });
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
+/** Stickers: one button, then search KLIPY, upload, or paste a link. */
+export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void }> = ({ onAdd }) => {
+  const [picking, setPicking] = useState(false);
   return (
-    <div className="space-y-4">
+    <>
       <button
         type="button"
-        onClick={() => setKlipyOpen(true)}
+        onClick={() => setPicking(true)}
         className="w-full h-12 rounded-2xl bg-brand-purple hover:shadow-[0_0_20px_rgba(97,0,216,0.6)] font-mono text-[11px] tracking-[0.2em] text-white cursor-pointer"
       >
-        SEARCH STICKERS & GIFS ✦
+        + ADD STICKER
       </button>
-      <div>
-        <p className={sectionTitle}>Your own</p>
-        <div className="flex gap-2">
-          <Chip onClick={() => file.current?.click()}>{uploading ? 'UPLOADING…' : 'UPLOAD IMAGE / GIF'}</Chip>
-          <input ref={file} type="file" accept="image/*" hidden onChange={(e) => upload(e.target.files?.[0])} />
-        </div>
-        <div className="flex gap-2 mt-2">
-          <input
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            placeholder="or paste an image / GIF link"
-            className="flex-1 min-w-0 h-10 bg-white/8 rounded-xl px-3 outline-none font-body text-base text-white placeholder:text-white/30"
-          />
-          <Chip
-            disabled={!/^https?:\/\//.test(link.trim())}
-            onClick={() => {
-              onAdd({ kind: 'image', value: link.trim(), width: 140 });
-              setLink('');
-            }}
-          >
-            ADD
-          </Chip>
-        </div>
-      </div>
-
-      {klipyOpen && (
-        <GifPicker
-          initialKind="stickers"
-          onClose={() => setKlipyOpen(false)}
-          onPick={(item) => {
-            onAdd({ kind: 'image', value: item.url, width: Math.min(160, Math.max(80, Math.round(item.width * 0.6))) });
-            setKlipyOpen(false);
+      <p className="font-body text-sm text-white/40 mt-2">drag it anywhere on the page · corner to resize · top handle to rotate</p>
+      {picking && (
+        <MediaPicker
+          title="Add a sticker"
+          tabs={['stickers', 'gifs', 'upload', 'link']}
+          folder="intro"
+          onClose={() => setPicking(false)}
+          onPick={(m) => {
+            onAdd({ kind: 'image', value: m.src, width: m.width ? Math.min(160, Math.max(80, Math.round(m.width * 0.6))) : 140 });
+            setPicking(false);
           }}
         />
       )}
-    </div>
+    </>
   );
 };

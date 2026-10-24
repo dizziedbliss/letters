@@ -31,6 +31,7 @@ const BODIES: Record<string, Row[]> = {
   ],
   first: [
     para(p('okay so this is the first letter on our very own website hehe')),
+    { type: 'image', props: { url: 'asset:characters', previewWidth: 300 } },
     para(p('it took me '), p('forever', { italic: true }), p(' but look, its ours.')),
   ],
   random: [para(p('no reason. just thinking about you :3'))],

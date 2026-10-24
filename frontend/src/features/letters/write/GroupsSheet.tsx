@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { groupsApi, type LetterGroup } from '../../../utils/api';
 import { Sheet } from '../../intro/editor/ui';
 import { inputClass } from './controls';
+import { useConfirm } from '../../../components/common/useConfirm';
 
 /** Named limits like "Open when: 2 per week". Letters join one group; opens count per group. */
 export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: LetterGroup[]) => void; onClose: () => void }> = ({
@@ -10,6 +11,7 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
   onClose,
 }) => {
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
   const [created, setCreated] = useState<number | null>(null);
   const newNameRef = useRef<HTMLInputElement>(null);
 
@@ -34,8 +36,8 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
       })
       .catch((e) => setError(e.message));
 
-  const remove = (g: LetterGroup) => {
-    if (!window.confirm(`Delete "${g.name}"? Its letters become unlimited.`)) return;
+  const remove = async (g: LetterGroup) => {
+    if (!(await confirm({ title: `Delete "${g.name}"?`, body: 'Its letters become unlimited.', confirmLabel: 'Delete', danger: true }))) return;
     groupsApi
       .remove(g.id)
       .then(() => onChange(groups.filter((x) => x.id !== g.id)))
@@ -87,6 +89,7 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
         + NEW GROUP
       </button>
       {error && <p className="mt-3 font-body text-rose-300">{error}</p>}
+      {dialog}
     </Sheet>
   );
 };
