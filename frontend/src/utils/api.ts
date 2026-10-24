@@ -60,6 +60,16 @@ export async function login(code: string): Promise<boolean> {
 
 export const logout = () => supabase.auth.signOut();
 
+/** Save this browser's timezone on my profile, so letter quotas reset on my Monday. */
+export async function syncTimezone(): Promise<void> {
+  const id = await currentUserId();
+  if (!id) return;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  await supabase.from('profiles').update({ timezone }).eq('id', id).neq('timezone', timezone);
+  // a null timezone doesn't match neq, so fill that case too
+  await supabase.from('profiles').update({ timezone }).eq('id', id).is('timezone', null);
+}
+
 export async function currentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.user.id ?? null;
