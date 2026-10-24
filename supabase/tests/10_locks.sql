@@ -14,6 +14,8 @@ insert into letters (id, title, body, author_id, sealed, section, rule) overridi
   (30, 'her own letter', '', :'her', false, 'random', null);
 insert into letter_bodies (letter_id, doc) values (10, '[{"type":"paragraph","content":"TOP SECRET BODY"}]'), (11, '[{"type":"paragraph","content":"FUTURE BODY"}]');
 select setval(pg_get_serial_sequence('letters','id'), 100);
+-- test letters count as sent (0007 makes new letters drafts by default)
+update letters set published_at = created_at where published_at is null;
 update profiles set timezone = 'Asia/Kolkata' where true;
 insert into profiles (id, display_name, timezone) values (:'max','Max','Asia/Kolkata'), (:'her','Saumi','Asia/Kolkata') on conflict (id) do update set timezone = excluded.timezone;
 
@@ -68,3 +70,20 @@ select id, title from open_letter(13);
 reset role; set role anon;
 select set_config('request.jwt.claim.sub', '', false) \gset
 select count(*) from letter_index();
+
+\echo '===== drafts ====='
+reset role;
+insert into letters (id, title, author_id, section) overriding system value values (50, 'DRAFT TITLE', :'max', 'random');
+update letters set published_at = null where id = 50;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'her', false) \gset
+\echo '--- draft is not in her index (expect 0)'
+select count(*) as draft_rows from letter_index() where id = 50;
+\echo '--- opening a draft by id (expect: letter not found)'
+select id from open_letter(50);
+reset role;
+update letters set published_at = now() where id = 50;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'her', false) \gset
+\echo '--- after Send it appears (expect 1)'
+select count(*) as sent_rows from letter_index() where id = 50;

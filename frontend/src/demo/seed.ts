@@ -67,6 +67,7 @@ export function seed(): Tables {
       group_id: null,
       created_at: iso(-(25 - id) * day),
       updated_at: iso(-(25 - id) * day),
+      published_at: iso(-(25 - id) * day),
       ...l,
     };
     letters.push(letter);
@@ -82,7 +83,7 @@ export function seed(): Tables {
     [SAUMI, 'Saumi'],
     [MAX, 'Max'],
   ] as const) {
-    const first = add(author, { title: 'the night we stayed up', greeting: 'hey stinky,' }, BODIES.night);
+    const first = add(author, { title: 'the night we stayed up', greeting: 'hi you,' }, BODIES.night);
     add(author, { title: 'secret one', sealed: true }, BODIES.sealed);
     add(author, { title: 'for your exam day', rule: { kind: 'date', at: iso(2 * day + 4 * 3600e3) } }, BODIES.generic);
     add(author, { title: 'chapter two', rule: { kind: 'after', letter_id: first } }, BODIES.generic);

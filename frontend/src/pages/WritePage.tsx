@@ -4,6 +4,7 @@ import { usePageTransition } from '../components/transition/context';
 import { groupsApi, isAuthError, lettersApi, logout as apiLogout, otherName, type LetterGroup, type MyLetter } from '../utils/api';
 import { LetterSettings } from '../features/letters/write/LetterSettings';
 import { GroupsSheet } from '../features/letters/write/GroupsSheet';
+import { useToast } from '../components/common/Toast';
 
 // BlockNote is big; load it only once a letter is open for editing
 const LetterEditor = lazy(() => import('../features/letters/LetterEditor'));
@@ -28,7 +29,7 @@ export const WritePage: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [unsaved, setUnsaved] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const { show: showToast, node: toastNode } = useToast();
 
   // ---- debounced saving: one timer per thing being saved, flushed on switch/leave ----
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -38,9 +39,9 @@ export const WritePage: React.FC = () => {
   const fail = useCallback(
     (err: unknown) => {
       if (isAuthError(err)) navigate('/', { replace: true });
-      else setError(err instanceof Error ? err.message : 'something went wrong');
+      else showToast(err instanceof Error ? `couldn't save: ${err.message}` : 'something went wrong, try again?', 'error');
     },
-    [navigate]
+    [navigate, showToast]
   );
 
   const run = useCallback(
@@ -165,9 +166,39 @@ export const WritePage: React.FC = () => {
     try {
       await lettersApi.unlock(selected.id);
       setLetters((ls) => ls?.map((l) => (l.id === selected.id ? { ...l, unlockedByWriter: true } : l)) ?? ls);
+      showToast(`unlocked ✓ ${reader ?? 'they'} can open it now`);
     } catch (err) {
       fail(err);
     }
+  };
+
+  const send = async () => {
+    if (!selected) return;
+    if (!window.confirm(`Send "${selected.title || 'untitled'}" to ${reader ?? 'them'}? It shows up in their letters right away.`)) return;
+    flushAll();
+    try {
+      const publishedAt = await lettersApi.publish(selected.id);
+      setLetters((ls) => ls?.map((l) => (l.id === selected.id ? { ...l, publishedAt } : l)) ?? ls);
+      showToast(`sent ✓ it's in ${reader ?? 'their'}'s letters now`);
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const unsend = async () => {
+    if (!selected || selected.openedAt) return;
+    try {
+      await lettersApi.unpublish(selected.id);
+      setLetters((ls) => ls?.map((l) => (l.id === selected.id ? { ...l, publishedAt: null } : l)) ?? ls);
+      showToast('back to drafts, only you can see it');
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const saveNow = () => {
+    flushAll();
+    showToast(selected?.publishedAt ? 'saved ✓ (changes show up for them too)' : 'draft saved ✓');
   };
 
   const logout = async () => {
@@ -185,6 +216,7 @@ export const WritePage: React.FC = () => {
       reader={reader}
       onPatch={(p) => patchLetter(selected.id, p, 200)}
       onUnlock={unlock}
+      onUnsend={unsend}
       onManageGroups={() => setShowGroups(true)}
     />
   );
@@ -261,10 +293,16 @@ export const WritePage: React.FC = () => {
                               {l.rule && <span className="px-1.5 py-0.5 rounded bg-white/10 text-white/70">{RULE_BADGE[l.rule.kind]}</span>}
                             </span>
                           </div>
-                          <div className={`font-mono text-[10px] tracking-wider mt-0.5 ${l.openedAt ? 'text-brand-cyan' : 'text-white/35'}`}>
-                            {l.openedAt
-                              ? `READ ${new Date(l.openedAt).toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase()} ♡`
-                              : 'NOT OPENED YET'}
+                          <div
+                            className={`font-mono text-[10px] tracking-wider mt-0.5 ${
+                              !l.publishedAt ? 'text-amber-300/80' : l.openedAt ? 'text-brand-cyan' : 'text-white/35'
+                            }`}
+                          >
+                            {!l.publishedAt
+                              ? 'DRAFT · NOT SENT'
+                              : l.openedAt
+                                ? `READ ${new Date(l.openedAt).toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase()} ♡`
+                                : 'SENT · NOT OPENED YET'}
                           </div>
                         </button>
                       </li>
@@ -273,7 +311,6 @@ export const WritePage: React.FC = () => {
                 </section>
               );
             })}
-          {error && <p className="px-3 mt-4 font-body text-rose-300">{error}</p>}
         </div>
       </aside>
 
@@ -291,9 +328,25 @@ export const WritePage: React.FC = () => {
                   <button type="button" onClick={() => (flushAll(), setSelectedId(null))} className={`md:hidden ${navBtn}`}>
                     &larr; letters
                   </button>
-                  <span className="flex-1 font-mono text-[10px] tracking-[0.2em] text-white/40">
-                    {unsaved ? 'SAVING…' : 'SAVED'}
+                  <span className="flex-1 min-w-0 truncate font-mono text-[10px] tracking-[0.2em] text-white/40">
+                    {selected.publishedAt ? 'SENT' : 'DRAFT'} · {unsaved ? 'SAVING…' : 'SAVED'}
                   </span>
+                  <button
+                    type="button"
+                    onClick={saveNow}
+                    className="h-9 px-3 rounded-full bg-white/[0.08] text-white/85 hover:bg-white/15 font-mono text-[10px] tracking-wider cursor-pointer"
+                  >
+                    SAVE
+                  </button>
+                  {!selected.publishedAt && (
+                    <button
+                      type="button"
+                      onClick={send}
+                      className="h-9 px-4 rounded-full bg-brand-cyan text-black font-mono text-[10px] tracking-wider font-bold cursor-pointer hover:shadow-[0_0_16px_rgba(0,216,255,0.5)]"
+                    >
+                      SEND ♡
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowSettings((s) => !s)}
@@ -301,7 +354,7 @@ export const WritePage: React.FC = () => {
                       showSettings ? 'bg-brand-cyan text-black' : 'bg-white/[0.08] text-white/80'
                     }`}
                   >
-                    LOCKS & SETTINGS
+                    SETTINGS
                   </button>
                   <button type="button" onClick={remove} className="h-9 px-3 rounded-full bg-white/[0.06] text-rose-300 font-mono text-[10px] tracking-wider cursor-pointer">
                     DELETE
@@ -323,7 +376,7 @@ export const WritePage: React.FC = () => {
                 <input
                   value={selected.greeting}
                   onChange={(e) => patchLetter(selected.id, { greeting: e.target.value })}
-                  placeholder="greeting (optional), e.g. hey stinky,"
+                  placeholder={`greeting (optional), e.g. hi ${reader?.toLowerCase() ?? 'you'},`}
                   maxLength={200}
                   className="w-full bg-transparent outline-none font-body italic text-2xl text-white/80 mt-4 placeholder:text-white/20"
                 />
@@ -348,6 +401,7 @@ export const WritePage: React.FC = () => {
       </main>
 
       {showGroups && <GroupsSheet groups={groups} onChange={setGroups} onClose={() => setShowGroups(false)} />}
+      {toastNode}
     </div>
   );
 };

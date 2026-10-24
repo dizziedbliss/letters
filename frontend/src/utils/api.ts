@@ -256,12 +256,14 @@ export interface MyLetter {
   unlockedByWriter: boolean;
   createdAt: string;
   updatedAt: string;
+  /** null = draft (only the writer can see it); set when sent. */
+  publishedAt: string | null;
   /** When the other person opened it (they can't see it before then). */
   openedAt: string | null;
 }
 
 const MY_COLS =
-  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at';
+  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at, publishedAt:published_at';
 
 type MetaPatch = Partial<Pick<MyLetter, 'title' | 'section' | 'sealed' | 'greeting' | 'rule' | 'groupId'>>;
 
@@ -322,6 +324,20 @@ export const lettersApi = {
 
   remove: async (id: number): Promise<void> => {
     const { error } = await supabase.from('letters').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  /** Send a draft: from now on it shows up for the other person. */
+  publish: async (id: number): Promise<string> => {
+    const publishedAt = new Date().toISOString();
+    const { error } = await supabase.from('letters').update({ published_at: publishedAt }).eq('id', id);
+    if (error) throw error;
+    return publishedAt;
+  },
+
+  /** Take a sent (but unopened) letter back to drafts. */
+  unpublish: async (id: number): Promise<void> => {
+    const { error } = await supabase.from('letters').update({ published_at: null }).eq('id', id);
     if (error) throw error;
   },
 

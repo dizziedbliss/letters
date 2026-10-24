@@ -9,3 +9,9 @@ body {
   color: var(--color-brand-black, #000000);
   font-family: var(--font-body);
 }
+/* Native dropdown lists ignore most styling (white-on-white on Windows); force a dark list */
+select option,
+select optgroup {
+  background-color: #1c1c1f;
+  color: #f3f0e8;
+}

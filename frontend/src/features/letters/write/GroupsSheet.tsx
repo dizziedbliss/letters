@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { groupsApi, type LetterGroup } from '../../../utils/api';
 import { Sheet } from '../../intro/editor/ui';
 import { inputClass } from './controls';
@@ -10,6 +10,15 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
   onClose,
 }) => {
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<number | null>(null);
+  const newNameRef = useRef<HTMLInputElement>(null);
+
+  // A freshly made group lands at the bottom: bring it into view with its name selected
+  useEffect(() => {
+    if (created == null || !newNameRef.current) return;
+    newNameRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    newNameRef.current.select();
+  }, [created]);
 
   const patch = (id: number, p: Partial<LetterGroup>) => {
     onChange(groups.map((g) => (g.id === id ? { ...g, ...p } : g)));
@@ -19,7 +28,10 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
   const add = () =>
     groupsApi
       .create({ name: 'New group', quota: 1, period: 'week' })
-      .then((g) => onChange([...groups, g]))
+      .then((g) => {
+        onChange([...groups, g]);
+        setCreated(g.id);
+      })
       .catch((e) => setError(e.message));
 
   const remove = (g: LetterGroup) => {
@@ -37,7 +49,13 @@ export const GroupsSheet: React.FC<{ groups: LetterGroup[]; onChange: (groups: L
         {groups.map((g) => (
           <div key={g.id} className="rounded-2xl bg-white/[0.05] p-3 space-y-2">
             <div className="flex gap-2">
-              <input className={inputClass} value={g.name} onChange={(e) => patch(g.id, { name: e.target.value })} aria-label="group name" />
+              <input
+                ref={g.id === created ? newNameRef : undefined}
+                className={`${inputClass} ${g.id === created ? 'ring-2 ring-brand-cyan' : ''}`}
+                value={g.name}
+                onChange={(e) => patch(g.id, { name: e.target.value })}
+                aria-label="group name"
+              />
               {!g.defaultFor && (
                 <button type="button" onClick={() => remove(g)} className="shrink-0 h-10 px-3 rounded-xl bg-white/[0.06] text-rose-300 font-mono text-[11px] cursor-pointer">
                   DELETE

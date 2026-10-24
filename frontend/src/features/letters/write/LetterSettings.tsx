@@ -19,11 +19,12 @@ interface LetterSettingsProps {
   reader: string | null;
   onPatch: (patch: Partial<MyLetter>) => void;
   onUnlock: () => void;
+  onUnsend: () => void;
   onManageGroups: () => void;
 }
 
 /** Everything about a letter that isn't its words: where it lives, how it's locked. */
-export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters, groups, reader, onPatch, onUnlock, onManageGroups }) => {
+export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters, groups, reader, onPatch, onUnlock, onUnsend, onManageGroups }) => {
   const ruleKind: RuleKind = letter.rule?.kind ?? 'none';
   const others = letters.filter((l) => l.id !== letter.id);
 
@@ -133,9 +134,18 @@ export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters,
       </div>
 
       <div className="rounded-xl bg-white/[0.04] px-4 py-3 font-body text-sm text-white/60">
-        {letter.openedAt
-          ? `${reader ?? 'They'} opened this on ${new Date(letter.openedAt).toLocaleDateString([], { day: 'numeric', month: 'short' })} ♡`
-          : `${reader ?? 'They'} hasn't opened this yet`}
+        {!letter.publishedAt ? (
+          <>draft: only you can see this. hit <span className="text-brand-cyan">SEND ♡</span> when it's ready.</>
+        ) : letter.openedAt ? (
+          `${reader ?? 'They'} opened this on ${new Date(letter.openedAt).toLocaleDateString([], { day: 'numeric', month: 'short' })} ♡`
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <span>sent {new Date(letter.publishedAt).toLocaleDateString([], { day: 'numeric', month: 'short' })}, not opened yet</span>
+            <button type="button" onClick={onUnsend} className="shrink-0 font-mono text-[10px] tracking-wider text-white/50 hover:text-white underline underline-offset-4 cursor-pointer">
+              UNSEND
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

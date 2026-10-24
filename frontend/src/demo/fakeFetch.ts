@@ -7,7 +7,7 @@ import { USERS, seed, type Tables } from './seed';
 
 type Row = Record<string, unknown>;
 
-const STORE_KEY = 'letters-demo-db-v1';
+const STORE_KEY = 'letters-demo-db-v2'; // bump when the fake schema changes
 
 // ?reset-demo in the URL wipes the fake database back to the seed
 if (new URLSearchParams(location.search).has('reset-demo')) localStorage.removeItem(STORE_KEY);
@@ -71,7 +71,7 @@ function currentUser(req: Request): string | null {
 // ---- responses -----------------------------------------------------------------
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(body === undefined ? null : JSON.stringify(body), {
+  new Response(body === undefined || status === 204 ? null : JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json', ...headers },
   });
@@ -126,14 +126,14 @@ function rpc(name: string, args: Row, me: string | null): Response {
 
   if (name === 'letter_index') {
     const rows = db.letters
-      .filter((l) => l.author_id !== me)
-      .sort((a, b) => Date.parse(b.created_at as string) - Date.parse(a.created_at as string))
+      .filter((l) => l.author_id !== me && l.published_at)
+      .sort((a, b) => Date.parse(b.published_at as string) - Date.parse(a.published_at as string))
       .map((l) => {
         const o = opened(l.id, me);
         const lk = lockOf(l, me);
         const u = usage(l.group_id, me);
         const rule = l.rule as Row | null;
-        const after = lk.reason === 'after' ? db.letters.find((a) => a.id === rule?.letter_id) : null;
+        const after = lk.reason === 'after' ? db.letters.find((a) => a.id === rule?.letter_id && a.published_at) : null;
         return {
           id: l.id,
           title: l.sealed && !o ? null : l.title,
@@ -143,7 +143,7 @@ function rpc(name: string, args: Row, me: string | null): Response {
           group_quota: u?.quota ?? null,
           group_period: u?.period ?? null,
           group_used: u?.used ?? null,
-          created_at: l.created_at,
+          created_at: l.published_at,
           opened_at: o?.opened_at ?? null,
           locked: lk.locked,
           lock_reason: lk.reason,
@@ -155,7 +155,7 @@ function rpc(name: string, args: Row, me: string | null): Response {
   }
 
   if (name === 'open_letter') {
-    const l = db.letters.find((x) => x.id === args.p_id && x.author_id !== me);
+    const l = db.letters.find((x) => x.id === args.p_id && x.author_id !== me && x.published_at);
     if (!l) return pgError(400, 'letter not found', 'P0002');
     const lk = lockOf(l, me);
     if (lk.locked) return pgError(400, `locked: ${lk.reason}`, 'P0001', lk.unlockAt ?? '');
@@ -267,7 +267,7 @@ function withDefaults(table: string, r: Row, me: string): Row {
     const group = db.letter_groups.find((g) => g.owner_id === (r.author_id ?? me) && g.default_for === section);
     return {
       id: nextId, author_id: me, title: '', body: '', section, sealed: false, greeting: '', rule: null,
-      unlocked_by_writer: false, group_id: group?.id ?? null, created_at: now, updated_at: now, ...r,
+      unlocked_by_writer: false, group_id: group?.id ?? null, created_at: now, updated_at: now, published_at: null, ...r,
     };
   }
   if (table === 'letter_groups') {
