@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminApi, logout as apiLogout, ApiError, type Letter } from '../utils/api';
+import { usePageTransition } from '../components/transition/context';
+import { lettersApi, logout as apiLogout, isAuthError, type Letter } from '../utils/api';
 
 type Draft = { id: number | null; title: string; body: string };
 
@@ -9,8 +10,9 @@ const NEW_DRAFT: Draft = { id: null, title: '', body: '' };
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
-export const AdminPage: React.FC = () => {
+export const WritePage: React.FC = () => {
   const navigate = useNavigate();
+  const { go } = usePageTransition();
   const [letters, setLetters] = useState<Letter[]>([]);
   const [draft, setDraft] = useState<Draft>(NEW_DRAFT);
   const [saved, setSaved] = useState<Draft>(NEW_DRAFT);
@@ -24,7 +26,7 @@ export const AdminPage: React.FC = () => {
 
   const handleApiError = useCallback(
     (err: unknown) => {
-      if (err instanceof ApiError && err.status === 401) {
+      if (isAuthError(err)) {
         navigate('/', { replace: true });
         return;
       }
@@ -34,8 +36,8 @@ export const AdminPage: React.FC = () => {
   );
 
   useEffect(() => {
-    adminApi
-      .list()
+    lettersApi
+      .mine()
       .then(setLetters)
       .catch(handleApiError)
       .finally(() => setLoading(false));
@@ -73,8 +75,8 @@ export const AdminPage: React.FC = () => {
     try {
       const letter =
         draft.id === null
-          ? await adminApi.create(draft.title, draft.body)
-          : await adminApi.update(draft.id, draft.title, draft.body);
+          ? await lettersApi.create(draft.title, draft.body)
+          : await lettersApi.update(draft.id, draft.title, draft.body);
       const next = { id: letter.id, title: letter.title, body: letter.body };
       setDraft(next);
       setSaved(next);
@@ -96,7 +98,7 @@ export const AdminPage: React.FC = () => {
     }
     if (!window.confirm(`Delete "${saved.title}"? This can't be undone.`)) return;
     try {
-      await adminApi.remove(draft.id);
+      await lettersApi.remove(draft.id);
       setLetters((prev) => prev.filter((l) => l.id !== draft.id));
       setDraft(NEW_DRAFT);
       setSaved(NEW_DRAFT);
@@ -135,16 +137,32 @@ export const AdminPage: React.FC = () => {
           <h1 className="font-heading font-medium text-2xl">
             Your <span className="font-body italic font-normal">letters</span>
           </h1>
-          <button
-            type="button"
-            onClick={logout}
-            className="text-white/50 hover:text-white text-sm font-body transition-colors cursor-pointer"
-          >
-            log out
-          </button>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => confirmDiscard() && go('/home', { label: 'Home', code: '00' })}
+              className="text-white/50 hover:text-white text-sm font-body transition-colors cursor-pointer"
+            >
+              home
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-white/50 hover:text-white text-sm font-body transition-colors cursor-pointer"
+            >
+              log out
+            </button>
+          </div>
         </div>
 
-        <div className="px-5 pb-4">
+        <div className="px-5 pb-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => confirmDiscard() && navigate('/write/intro')}
+            className={`${btn} w-full bg-white/5 text-white/80 hover:bg-white/10`}
+          >
+            edit their intro page
+          </button>
           <button
             type="button"
             onClick={() => open(null)}
@@ -237,4 +255,4 @@ export const AdminPage: React.FC = () => {
   );
 };
 
-export default AdminPage;
+export default WritePage;

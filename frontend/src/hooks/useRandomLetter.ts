@@ -1,49 +1,35 @@
 import { useCallback, useRef, useState } from 'react';
-import { ApiError, readerApi, type Letter } from '../utils/api';
+import { nextLetter, profileNames, type Letter } from '../utils/api';
 
 export type ShuffleStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
-const SEEN_KEY = 'letters_seen';
-
-const loadSeen = (): number[] => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]');
-    return Array.isArray(parsed) ? parsed.filter((n) => Number.isInteger(n)) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveSeen = (ids: number[]) => {
-  try {
-    localStorage.setItem(SEEN_KEY, JSON.stringify(ids));
-  } catch {
-    // private mode etc: she just might see a repeat after reloading
-  }
-};
-
 /**
- * Shuffle through letters one at a time, each only once. Read letters are
- * remembered in this browser, so letters added later show up as "more".
- * `status === 'empty'` means she's read everything so far.
+ * Shuffle through the other person's letters one at a time, each only once.
+ * The database remembers what's been read (per account), so it follows you
+ * across devices. `status === 'empty'` means you've read everything so far.
  */
 export function useRandomLetter() {
   const [letter, setLetter] = useState<Letter | null>(null);
+  const [author, setAuthor] = useState<string | null>(null);
   const [status, setStatus] = useState<ShuffleStatus>('idle');
-  const seen = useRef<number[]>(loadSeen());
+  const names = useRef<Record<string, string> | null>(null);
 
   const next = useCallback(async () => {
     setStatus('loading');
     try {
-      const picked = await readerApi.random(seen.current);
-      seen.current = [...seen.current, picked.id];
-      saveSeen(seen.current);
+      const picked = await nextLetter();
+      if (!picked) {
+        setStatus('empty');
+        return;
+      }
+      names.current ??= await profileNames().catch(() => ({}));
+      setAuthor((picked.authorId && names.current[picked.authorId]) || null);
       setLetter(picked);
       setStatus('ready');
-    } catch (err) {
-      setStatus(err instanceof ApiError && err.status === 404 ? 'empty' : 'error');
+    } catch {
+      setStatus('error');
     }
   }, []);
 
-  return { letter, status, next };
+  return { letter, author, status, next };
 }
