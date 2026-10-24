@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { DESIGN_WIDTH, embedUrl, themeFor, type Align, type Block, type IntroDoc, type Sticker } from './doc';
+import React from 'react';
+import { embedUrl, HEADING_PX, TEXT_PX, themeFor, type Block, type IntroDoc, type Sticker } from './doc';
+import { justify, textAlign } from './styles';
+import { useDesignScale } from './useDesignScale';
 import { useMediaUrl } from './useMediaUrl';
 import { paragraphs } from '../../hooks/useMyIntro';
 
-const MAX_SCALE = 1.2; // laptops get a bigger page, not a different layout
+export const MAX_SCALE = 1.2; // laptops get a bigger page, not a different layout
 
-const justify: Record<Align, string> = { left: 'justify-start', center: 'justify-center', right: 'justify-end' };
-const textAlign: Record<Align, string> = { left: 'text-left', center: 'text-center', right: 'text-right' };
 
 const BUTTON_COLORS = {
   cyan: 'bg-brand-cyan text-black hover:shadow-[0_0_20px_rgba(0,216,255,0.6)]',
@@ -21,14 +21,14 @@ const Img: React.FC<{ src: string; alt?: string; className?: string; style?: Rea
   return <img src={url} alt={alt ?? ''} draggable={false} className={className} style={style} />;
 };
 
-const BlockView: React.FC<{ block: Block; ink: string; strong: string; onButton?: () => void }> = ({ block, ink, strong, onButton }) => {
+export const BlockView: React.FC<{ block: Block; ink: string; strong: string; onButton?: () => void }> = ({ block, ink, strong, onButton }) => {
   switch (block.type) {
     case 'heading': {
       const { text, accent, size = 'lg', align = 'left', color } = block.props;
       return (
         <h1
           className={`tracking-tight leading-tight mb-2 ${textAlign[align]}`}
-          style={{ fontSize: size === 'xl' ? 48 : 38, color: color ?? strong }}
+          style={{ fontSize: HEADING_PX[size], color: color ?? strong }}
         >
           {text && <span className="font-heading font-medium">{text}</span>}
           {accent && <span className="font-body italic font-normal">{accent}</span>}
@@ -41,7 +41,7 @@ const BlockView: React.FC<{ block: Block; ink: string; strong: string; onButton?
       return (
         <div
           className={`font-body leading-relaxed space-y-6 whitespace-pre-line ${italic ? 'italic' : ''} ${textAlign[align]}`}
-          style={{ fontSize: size === 'lg' ? 22 : size === 'sm' ? 16 : 18, color: color ?? ink }}
+          style={{ fontSize: TEXT_PX[size], color: color ?? ink }}
         >
           {paragraphs(text).map((p, i) => (
             <p key={i}>{p}</p>
@@ -100,7 +100,7 @@ const BlockView: React.FC<{ block: Block; ink: string; strong: string; onButton?
   }
 };
 
-const StickerView: React.FC<{ sticker: Sticker }> = ({ sticker: s }) => {
+export const StickerView: React.FC<{ sticker: Sticker }> = ({ sticker: s }) => {
   const style: React.CSSProperties = {
     left: s.x,
     top: s.y,
@@ -127,40 +127,12 @@ interface IntroRendererProps {
  * The page background is the caller's job (see `themeFor`), since it fills the screen.
  */
 export const IntroRenderer: React.FC<IntroRendererProps> = ({ doc, onButton }) => {
-  const outerRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ scale: 1, height: 0, offset: 0 });
+  const { outerRef, frameRef, box, frameStyle } = useDesignScale(MAX_SCALE);
   const theme = themeFor(doc.background);
-
-  useEffect(() => {
-    const outer = outerRef.current!;
-    const frame = frameRef.current!;
-    const measure = () => {
-      const scale = Math.min(outer.clientWidth / DESIGN_WIDTH, MAX_SCALE);
-      setBox({
-        scale,
-        height: frame.offsetHeight * scale, // offsetHeight ignores the transform
-        offset: (outer.clientWidth - DESIGN_WIDTH * scale) / 2,
-      });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(outer);
-    ro.observe(frame);
-    return () => ro.disconnect();
-  }, []);
 
   return (
     <div ref={outerRef} className="relative w-full" style={{ height: box.height || undefined }}>
-      <div
-        ref={frameRef}
-        className="absolute top-0 left-0 px-6 py-4 flex flex-col gap-6"
-        style={{
-          width: DESIGN_WIDTH,
-          transform: `translateX(${box.offset}px) scale(${box.scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
+      <div ref={frameRef} className="absolute top-0 left-0 px-6 py-4 flex flex-col gap-6" style={frameStyle}>
         {doc.blocks.map((b) => (
           <BlockView key={b.id} block={b} ink={theme.ink} strong={theme.strong} onButton={onButton} />
         ))}

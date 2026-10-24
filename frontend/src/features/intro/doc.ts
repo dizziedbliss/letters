@@ -63,7 +63,15 @@ export interface IntroDoc {
   background: Background;
   blocks: Block[];
   stickers: Sticker[];
+  /** The letters page ("Hello, ___" + the note before the first letter), published with the doc. */
+  letters?: { nickname: string; note: string };
 }
+
+// Design-px sizes, shared by the renderer and the inline editor so editing looks identical
+export const HEADING_PX = { lg: 38, xl: 48 } as const;
+export const TEXT_PX = { sm: 16, md: 18, lg: 22 } as const;
+
+export const newId = () => crypto.randomUUID();
 
 const BLOCK_TYPES = new Set(['heading', 'text', 'image', 'embed', 'button']);
 
@@ -92,8 +100,21 @@ export function parseDoc(raw: unknown): IntroDoc | null {
     background: d.background ?? { kind: 'preset', value: 'dark' },
     blocks,
     stickers: Array.isArray(d.stickers) ? d.stickers : [],
+    ...(d.letters && typeof d.letters === 'object' ? { letters: d.letters } : {}),
   };
 }
+
+/** Where a brand-new build starts. */
+export const starterDoc = (name: string | null): IntroDoc => ({
+  version: 1,
+  background: { kind: 'preset', value: 'dark' },
+  blocks: [
+    { id: newId(), type: 'heading', props: { text: 'Hello, ', accent: name ?? 'you' } },
+    { id: newId(), type: 'text', props: { text: 'write something sweet here :3', size: 'md' } },
+    defaultButton(),
+  ],
+  stickers: [],
+});
 
 /** Shown until the other person publishes your page. */
 export const placeholderDoc = (name: string | null): IntroDoc => ({

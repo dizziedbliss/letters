@@ -1,6 +1,7 @@
 // Data layer: talks to Supabase directly, row-level security decides who sees what.
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import type { IntroDoc } from '../features/intro/doc';
 
 export interface Letter {
   id: number;
@@ -117,27 +118,6 @@ export async function myIntro(): Promise<Intro | null> {
   return data;
 }
 
-/** The intro page I write for the other person, plus their display name. */
-export async function theirIntro(): Promise<{ name: string | null; intro: Intro | null }> {
-  const other = await otherUserId();
-  if (!other) return { name: null, intro: null };
-  const [{ data: intro, error }, names] = await Promise.all([
-    supabase.from('intros').select(INTRO_COLS).eq('for_user', other).maybeSingle(),
-    profileNames(),
-  ]);
-  if (error) throw error;
-  return { name: names[other] ?? null, intro };
-}
-
-export async function saveTheirIntro(intro: Intro): Promise<void> {
-  const other = await otherUserId();
-  if (!other) throw new Error('no one to write for yet');
-  const { error } = await supabase
-    .from('intros')
-    .upsert({ for_user: other, ...intro, updated_at: new Date().toISOString() });
-  if (error) throw error;
-}
-
 // ---- intro page builder docs -------------------------------------------------
 
 /** My published intro page doc (raw JSON; run it through parseDoc). Null if not published yet. */
@@ -147,6 +127,56 @@ export async function myIntroPage(): Promise<unknown | null> {
   const { data, error } = await supabase.from('intro_pages').select('doc').eq('for_user', me).maybeSingle();
   if (error) throw error;
   return data?.doc ?? null;
+}
+
+/** Everything the builder needs about the page I'm building for the other person. */
+export async function theirBuilderState(): Promise<{
+  name: string | null;
+  draft: unknown | null;
+  published: unknown | null;
+  intro: Intro | null;
+}> {
+  const other = await otherUserId();
+  if (!other) return { name: null, draft: null, published: null, intro: null };
+  const [draft, published, intro, names] = await Promise.all([
+    supabase.from('intro_drafts').select('doc').eq('for_user', other).maybeSingle(),
+    supabase.from('intro_pages').select('doc').eq('for_user', other).maybeSingle(),
+    supabase.from('intros').select(INTRO_COLS).eq('for_user', other).maybeSingle(),
+    profileNames(),
+  ]);
+  for (const r of [draft, published, intro]) if (r.error) throw r.error;
+  return {
+    name: names[other] ?? null,
+    draft: draft.data?.doc ?? null,
+    published: published.data?.doc ?? null,
+    intro: intro.data,
+  };
+}
+
+/** Autosave: only I (the builder) can ever read this draft. */
+export async function saveTheirDraft(doc: IntroDoc): Promise<void> {
+  const other = await otherUserId();
+  if (!other) throw new Error('no one to build for yet');
+  const { error } = await supabase
+    .from('intro_drafts')
+    .upsert({ for_user: other, doc, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+/** Make the doc their live page, along with the letters-page nickname and note. */
+export async function publishTheirPage(doc: IntroDoc): Promise<void> {
+  const other = await otherUserId();
+  if (!other) throw new Error('no one to build for yet');
+  const { error } = await supabase
+    .from('intro_pages')
+    .upsert({ for_user: other, doc, published_at: new Date().toISOString() });
+  if (error) throw error;
+  if (doc.letters) {
+    const { error: e2 } = await supabase
+      .from('intros')
+      .upsert({ for_user: other, nickname: doc.letters.nickname, note: doc.letters.note });
+    if (e2) throw e2;
+  }
 }
 
 // ---- writing ---------------------------------------------------------------

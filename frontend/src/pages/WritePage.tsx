@@ -161,7 +161,7 @@ export const WritePage: React.FC = () => {
             onClick={() => confirmDiscard() && navigate('/write/intro')}
             className={`${btn} w-full bg-white/5 text-white/80 hover:bg-white/10`}
           >
-            edit their intro page
+            build their intro page
           </button>
           <button
             type="button"

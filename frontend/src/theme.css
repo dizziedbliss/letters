@@ -142,3 +142,7 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 6. Horizontal chip rows that scroll without a visible bar */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

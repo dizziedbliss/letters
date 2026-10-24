@@ -5,7 +5,7 @@ import SorryUpdating from './pages/SorryUpdating'
 import LettersPage from './pages/LettersPage'
 import WritePage from './pages/WritePage'
 import HomePage from './pages/HomePage'
-import IntroEditPage from './pages/IntroEditPage'
+import IntroBuilderPage from './pages/IntroBuilderPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import { usePageTransition } from './components/transition/context'
 
@@ -43,7 +43,7 @@ function App() {
         path="/write/intro"
         element={
           <ProtectedRoute>
-            <IntroEditPage />
+            <IntroBuilderPage />
           </ProtectedRoute>
         }
       />
