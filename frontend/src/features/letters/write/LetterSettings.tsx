@@ -33,6 +33,8 @@ interface LetterSettingsProps {
 /** Everything about a letter that isn't its words, as few decisions as possible. */
 export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters, groups, reader, onPatch, onUnlock, onUnsend, onManageGroups }) => {
   const [limitOpen, setLimitOpen] = useState(false);
+  const [buzzOpen, setBuzzOpen] = useState(false);
+  const customBuzz = !!(letter.notifyTitle?.trim() || letter.notifyBody?.trim());
   const when: When = letter.rule?.kind ?? 'now';
   const others = letters.filter((l) => l.id !== letter.id);
   const group = groups.find((g) => g.id === letter.groupId);
@@ -154,6 +156,40 @@ export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters,
             );
           })}
         </div>
+      </div>
+
+      <div className="rounded-xl bg-white/[0.03] px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-body text-sm text-white/60 min-w-0 truncate">
+            notification:{' '}
+            <span className="text-white/90">{customBuzz ? `"${letter.notifyTitle?.trim() || letter.notifyBody?.trim()}"` : 'the usual'}</span>
+          </span>
+          <button type="button" onClick={() => setBuzzOpen((o) => !o)} className="font-mono text-[10px] tracking-wider text-white/45 hover:text-white cursor-pointer shrink-0">
+            {buzzOpen ? 'DONE' : 'CHANGE'}
+          </button>
+        </div>
+        {buzzOpen && (
+          <div className="mt-3 space-y-2">
+            <input
+              className={inputClass}
+              maxLength={60}
+              value={letter.notifyTitle ?? ''}
+              onChange={(e) => onPatch({ notifyTitle: e.target.value })}
+              placeholder="title, e.g. psst... open this"
+            />
+            <input
+              className={inputClass}
+              maxLength={120}
+              value={letter.notifyBody ?? ''}
+              onChange={(e) => onPatch({ notifyBody: e.target.value })}
+              placeholder="line, e.g. it's important hehe"
+            />
+            <p className="font-body text-xs text-white/40">
+              {who}'s phone shows this when the letter lands{letter.rule ? ', or when it unlocks if it starts locked' : ''}. leave empty for the usual
+              "a letter from…" lines.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl bg-white/[0.03] px-3 py-2.5">

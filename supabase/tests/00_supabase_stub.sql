@@ -34,3 +34,20 @@ alter default privileges in schema public grant all on sequences to authenticate
 insert into auth.users values
   ('00000000-0000-0000-0000-00000000000a', 'max@x'),
   ('00000000-0000-0000-0000-00000000000b', 'her@x');
+
+-- 0010: pg_net, pg_cron and Vault stand-ins. http_post just records the call.
+create role service_role nologin;
+grant usage on schema public to service_role;
+create schema net;
+create table net.calls (id serial, url text, body jsonb, headers jsonb, at timestamptz default now());
+create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}',
+                              headers jsonb default '{}', timeout_milliseconds int default 5000)
+returns bigint language sql as
+  $$ insert into net.calls (url, body, headers) values (url, body, headers) returning id $$;
+create schema cron;
+create table cron.job (jobname text primary key, schedule text, command text);
+create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as
+  $$ insert into cron.job values (job_name, schedule, command)
+     on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command returning 1::bigint $$;
+create schema vault;
+create table vault.decrypted_secrets (name text primary key, decrypted_secret text);

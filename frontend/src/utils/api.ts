@@ -264,16 +264,24 @@ export interface MyLetter {
   publishedAt: string | null;
   /** When the other person opened it (they can't see it before then). */
   openedAt: string | null;
+  /** Optional custom push notification text (0010); empty = the rotating defaults. */
+  notifyTitle: string | null;
+  notifyBody: string | null;
 }
 
 const MY_COLS =
-  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at, publishedAt:published_at';
+  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at, publishedAt:published_at, notifyTitle:notify_title, notifyBody:notify_body';
 
-type MetaPatch = Partial<Pick<MyLetter, 'title' | 'section' | 'sealed' | 'greeting' | 'rule' | 'groupId'>>;
+type MetaPatch = Partial<Pick<MyLetter, 'title' | 'section' | 'sealed' | 'greeting' | 'rule' | 'groupId' | 'notifyTitle' | 'notifyBody'>>;
 
 const toColumns = (p: MetaPatch) => {
-  const { groupId, ...rest } = p;
-  return { ...rest, ...(groupId !== undefined ? { group_id: groupId } : {}) };
+  const { groupId, notifyTitle, notifyBody, ...rest } = p;
+  return {
+    ...rest,
+    ...(groupId !== undefined ? { group_id: groupId } : {}),
+    ...(notifyTitle !== undefined ? { notify_title: notifyTitle } : {}),
+    ...(notifyBody !== undefined ? { notify_body: notifyBody } : {}),
+  };
 };
 
 export const lettersApi = {
