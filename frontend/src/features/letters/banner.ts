@@ -6,3 +6,13 @@ export interface Banner {
 }
 
 export const BANNER_PX = { sm: 140, md: 200, lg: 280 } as const;
+
+import type { Background, Sticker } from '../intro/doc';
+
+/** A letter's own page look: background + stickers (same pieces as the landing page). */
+export interface LetterLook {
+  background: Background;
+  stickers: Sticker[];
+}
+
+export const DEFAULT_LOOK: LetterLook = { background: { kind: 'preset', value: 'dark' }, stickers: [] };

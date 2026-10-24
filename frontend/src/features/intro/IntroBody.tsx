@@ -41,7 +41,7 @@ const IntroBody: React.FC<IntroBodyProps> = ({ content, editable, ink, onChange,
   }, [editor, onReady]);
 
   return (
-    <div className={`letter-body intro-body ${editable ? 'is-editing' : ''}`} style={{ '--intro-ink': ink } as React.CSSProperties} onFocus={onFocus}>
+    <div className={`letter-body intro-body ${editable ? 'is-editing' : ''}`} style={{ '--page-ink': ink } as React.CSSProperties} onFocus={onFocus}>
       <BlockNoteView
         editor={editor}
         editable={editable}

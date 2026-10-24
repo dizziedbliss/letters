@@ -55,7 +55,8 @@ export const stickerZ = (s: Sticker) => 10 + s.z;
 export const CONTENT_Z = 5;
 
 /** Lowest point any sticker reaches, so the frame is tall enough to show it. */
-export const stickersBottom = (doc: IntroDoc) => Math.max(0, ...doc.stickers.map((s) => s.y + s.width * 1.2));
+export const stickersBottomOf = (stickers: Sticker[]) => Math.max(0, ...stickers.map((s) => s.y + s.width * 1.2));
+export const stickersBottom = (doc: IntroDoc) => stickersBottomOf(doc.stickers);
 
 /** The letters button is always on the page: put it back at the end if it's missing. */
 export function ensureLettersButton(content: ContentBlock[]): ContentBlock[] {

@@ -2,7 +2,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { IntroDoc } from '../features/intro/doc';
-import type { Banner } from '../features/letters/banner';
+import type { Banner, LetterLook } from '../features/letters/banner';
 
 export interface Letter {
   id: number;
@@ -114,6 +114,7 @@ export interface OpenedLetter {
   greeting: string;
   doc: unknown[];
   banner: Banner | null;
+  look: LetterLook | null;
   openedAt: string;
 }
 
@@ -137,7 +138,7 @@ export async function openLetter(id: number): Promise<OpenedLetter> {
     throw error;
   }
   const row = (data as Record<string, never>[])[0];
-  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], banner: row.banner ?? null, openedAt: row.opened_at };
+  return { id: row.id, title: row.title, greeting: row.greeting, doc: row.doc ?? [], banner: row.banner ?? null, look: row.look ?? null, openedAt: row.opened_at };
 }
 
 /** id -> display name for the two accounts. */
@@ -305,10 +306,19 @@ export const lettersApi = {
     return data as unknown as Omit<MyLetter, 'openedAt'>;
   },
 
-  body: async (id: number): Promise<{ doc: unknown[]; banner: Banner | null }> => {
-    const { data, error } = await supabase.from('letter_bodies').select('doc, banner').eq('letter_id', id).maybeSingle();
+  body: async (id: number): Promise<{ doc: unknown[]; banner: Banner | null; look: LetterLook | null }> => {
+    const { data, error } = await supabase.from('letter_bodies').select('doc, banner, look').eq('letter_id', id).maybeSingle();
     if (error) throw error;
-    return { doc: (data?.doc as unknown[]) ?? [], banner: (data?.banner as Banner | null) ?? null };
+    return {
+      doc: (data?.doc as unknown[]) ?? [],
+      banner: (data?.banner as Banner | null) ?? null,
+      look: (data?.look as LetterLook | null) ?? null,
+    };
+  },
+
+  saveLook: async (id: number, look: LetterLook): Promise<void> => {
+    const { error } = await supabase.from('letter_bodies').upsert({ letter_id: id, look, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
 
   saveBanner: async (id: number, banner: Banner | null): Promise<void> => {

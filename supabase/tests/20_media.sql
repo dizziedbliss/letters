@@ -29,6 +29,18 @@ select name from storage.objects where name like '%banner%' order by name;
 \echo '--- open_letter returns the banner (expect open-banner src)'
 select banner ->> 'src' as banner_src from open_letter(1);
 
+\echo '===== looks ====='
+reset role;
+insert into storage.objects (bucket_id, name, owner_id) values ('intro-media', 'letters/locked-sticker.webp', :'max');
+update letter_bodies set look = '{"background":{"kind":"preset","value":"purple"},"stickers":[{"kind":"image","value":"storage:letters/locked-sticker.webp"}]}' where letter_id = 11;
+update letter_bodies set look = '{"background":{"kind":"preset","value":"paper"},"stickers":[]}' where letter_id = 1;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'her', false) \gset
+\echo '--- locked letter''s sticker image NOT visible (expect 0)'
+select count(*) as locked_sticker_rows from storage.objects where name = 'letters/locked-sticker.webp';
+\echo '--- open_letter returns the look (expect paper)'
+select look -> 'background' ->> 'value' as look_bg from open_letter(1);
+
 \echo '===== media as MAX (uploader sees all three) ====='
 select set_config('request.jwt.claim.sub', :'max', false) \gset
 select name from storage.objects order by name;

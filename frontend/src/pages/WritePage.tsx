@@ -8,7 +8,17 @@ import { useToast } from '../components/common/Toast';
 import { useConfirm } from '../components/common/useConfirm';
 import { MediaPicker } from '../features/media/MediaPicker';
 import { LetterBanner } from '../features/letters/LetterBanner';
-import type { Banner } from '../features/letters/banner';
+import { DEFAULT_LOOK, type Banner, type LetterLook } from '../features/letters/banner';
+import { LetterCanvas } from '../features/letters/LetterCanvas';
+import { PageBackgroundImage } from '../features/letters/PageBackground';
+import { QuickBar, type QuickAction } from '../features/letters/write/QuickBar';
+import { insertAtCursor } from '../features/letters/write/insert';
+import type { LetterEditorInstance } from '../features/letters/LetterEditor';
+import { StickerLayer } from '../features/intro/stickers/StickerLayer';
+import { PagePanel } from '../features/intro/editor/Palettes';
+import { Sheet } from '../features/intro/editor/ui';
+import { DESIGN_WIDTH, newId, themeFor, type Sticker } from '../features/intro/doc';
+import type { MediaTab } from '../features/media/MediaPicker';
 
 // BlockNote is big; load it only once a letter is open for editing
 const LetterEditor = lazy(() => import('../features/letters/LetterEditor'));
@@ -29,8 +39,14 @@ export const WritePage: React.FC = () => {
   const [groups, setGroups] = useState<LetterGroup[]>([]);
   const [reader, setReader] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [body, setBody] = useState<{ id: number; doc: unknown[]; banner: Banner | null } | null>(null);
+  const [body, setBody] = useState<{ id: number; doc: unknown[]; banner: Banner | null; look: LetterLook | null } | null>(null);
   const [bannerPicker, setBannerPicker] = useState(false);
+  const [insertPicker, setInsertPicker] = useState<MediaTab | null>(null);
+  const [stickerPicker, setStickerPicker] = useState(false);
+  const [bgSheet, setBgSheet] = useState(false);
+  const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
+  const editorRef = useRef<LetterEditorInstance | null>(null);
+  const focusTitleFor = useRef<number | null>(null); // a just-created letter wants its title focused
   const [saveFlash, setSaveFlash] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showSettings, setShowSettings] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
@@ -107,7 +123,7 @@ export const WritePage: React.FC = () => {
     let cancelled = false;
     lettersApi
       .body(selectedId)
-      .then(({ doc, banner }) => !cancelled && setBody({ id: selectedId, doc, banner }))
+      .then(({ doc, banner, look }) => !cancelled && setBody({ id: selectedId, doc, banner, look }))
       .catch(fail);
     return () => {
       cancelled = true;
@@ -115,6 +131,13 @@ export const WritePage: React.FC = () => {
   }, [selectedId, fail]);
 
   const selected = letters?.find((l) => l.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (body && focusTitleFor.current === body.id) {
+      focusTitleFor.current = null;
+      requestAnimationFrame(() => document.getElementById('letter-title')?.focus());
+    }
+  }, [body]);
 
   // ---- edits ----
   const patchLetter = (id: number, patch: Partial<MyLetter>, ms = SAVE_MS) => {
@@ -147,8 +170,8 @@ export const WritePage: React.FC = () => {
     try {
       const letter = await lettersApi.create(section);
       setLetters((ls) => [letter, ...(ls ?? [])]);
+      focusTitleFor.current = letter.id;
       open(letter.id);
-      setTimeout(() => document.getElementById('letter-title')?.focus(), 50);
     } catch (err) {
       fail(err);
     }
@@ -214,6 +237,49 @@ export const WritePage: React.FC = () => {
     setSaveFlash('saved');
     setTimeout(() => setSaveFlash('idle'), 1800);
     showToast(selected?.publishedAt ? 'saved ✓ changes show up for them too' : 'draft saved ✓');
+  };
+
+  const look = body?.look ?? DEFAULT_LOOK;
+  const setLook = (next: LetterLook) => {
+    if (!body) return;
+    const id = body.id;
+    setBody({ ...body, look: next });
+    schedule(`look:${id}`, () => lettersApi.saveLook(id, next), 500);
+  };
+  const setStickers = (stickers: Sticker[]) => setLook({ ...look, stickers });
+
+  const onEditorReady = useCallback((editor: LetterEditorInstance) => {
+    editorRef.current = editor;
+  }, []);
+
+  const quick = (a: QuickAction) => {
+    const editor = editorRef.current;
+    if (a === 'banner') return setBannerPicker(true);
+    if (a === 'sticker') return setStickerPicker(true);
+    if (a === 'background') return setBgSheet(true);
+    if (a === 'image' || a === 'gif') return setInsertPicker(a === 'image' ? 'upload' : 'gifs');
+    if (!editor) return;
+    if (a === 'embed') insertAtCursor(editor, { type: 'embed' });
+    if (a === 'heading') insertAtCursor(editor, { type: 'heading', props: { level: 2 } });
+    if (a === 'quote') insertAtCursor(editor, { type: 'quote' });
+    if (a === 'list') insertAtCursor(editor, { type: 'bulletListItem' });
+    if (a === 'divider') insertAtCursor(editor, { type: 'divider' });
+  };
+
+  const addSticker = (value: string, width?: number) => {
+    const w = width ? Math.min(160, Math.max(80, Math.round(width * 0.6))) : 140;
+    const sticker: Sticker = {
+      id: newId(),
+      kind: 'image',
+      value,
+      width: w,
+      x: DESIGN_WIDTH - w - 16,
+      y: 40 + (look.stickers.length % 5) * 30,
+      rotation: -4,
+      z: Math.max(0, ...look.stickers.map((st) => st.z)) + 1,
+    };
+    setStickers([...look.stickers, sticker]);
+    setSelectedSticker(sticker.id);
   };
 
   const setBanner = (banner: Banner | null) => {
@@ -387,47 +453,69 @@ export const WritePage: React.FC = () => {
                 </div>
               </div>
 
-              {showSettings && <div className="lg:hidden max-w-[720px] mx-auto px-5 pt-5 pb-2 border-b border-white/5">{settings}</div>}
+              <QuickBar onAction={quick} hasBanner={!!body?.banner} />
 
-              <div className="max-w-[720px] mx-auto px-5 pt-8 pb-24">
-                {body?.id === selected.id &&
-                  (body.banner ? (
-                    <div className="mb-8">
-                      <LetterBanner banner={body.banner} onChange={setBanner} onChangeImage={() => setBannerPicker(true)} onRemove={() => setBanner(null)} />
+              {showSettings && <div className="lg:hidden max-w-[720px] mx-auto px-5 pt-5 pb-2 border-b border-white/5 bg-[#151515]">{settings}</div>}
+
+              <div
+                className="relative min-h-[calc(100dvh-104px)] pt-6 pb-24"
+                style={{ backgroundColor: themeFor(look.background).bg }}
+                onClick={() => setSelectedSticker(null)}
+              >
+                {themeFor(look.background).image && <PageBackgroundImage src={themeFor(look.background).image!} />}
+                {body?.id === selected.id ? (
+                  <LetterCanvas
+                    stickers={look.stickers}
+                    ready
+                    overlay={({ scale, frameHeight }) => (
+                      <StickerLayer
+                        stickers={look.stickers}
+                        scale={scale}
+                        frameHeight={frameHeight}
+                        snap
+                        selectedId={selectedSticker}
+                        onSelect={setSelectedSticker}
+                        onChange={setStickers}
+                      />
+                    )}
+                  >
+                    {body.banner && (
+                      <div className="mb-6">
+                        <LetterBanner banner={body.banner} onChange={setBanner} onChangeImage={() => setBannerPicker(true)} onRemove={() => setBanner(null)} />
+                      </div>
+                    )}
+                    <input
+                      id="letter-title"
+                      value={selected.title === 'untitled' ? '' : selected.title}
+                      onChange={(e) => patchLetter(selected.id, { title: e.target.value })}
+                      placeholder={selected.section === 'open_when' ? 'open when you’re… (e.g. sad)' : 'title (shows in the list)'}
+                      maxLength={200}
+                      className="w-full bg-transparent outline-none font-heading font-medium text-4xl tracking-tight placeholder:opacity-30"
+                      style={{ color: themeFor(look.background).strong }}
+                    />
+                    <input
+                      value={selected.greeting}
+                      onChange={(e) => patchLetter(selected.id, { greeting: e.target.value })}
+                      placeholder={`greeting (optional), e.g. hi ${reader?.toLowerCase() ?? 'you'},`}
+                      maxLength={200}
+                      className="w-full bg-transparent outline-none font-body italic text-2xl mt-4 placeholder:opacity-30"
+                      style={{ color: themeFor(look.background).ink }}
+                    />
+                    <div className="mt-6 -ml-[42px]">
+                      <Suspense fallback={<p className="pl-[42px] font-body italic opacity-40">loading editor...</p>}>
+                        <LetterEditor
+                          key={selected.id}
+                          initial={body.doc}
+                          ink={themeFor(look.background).ink}
+                          onReady={onEditorReady}
+                          onChange={(doc) => saveBody(selected.id, doc)}
+                        />
+                      </Suspense>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setBannerPicker(true)}
-                      className="mb-3 h-8 px-3 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white font-mono text-[10px] tracking-[0.2em] cursor-pointer"
-                    >
-                      + ADD BANNER
-                    </button>
-                  ))}
-                <input
-                  id="letter-title"
-                  value={selected.title === 'untitled' ? '' : selected.title}
-                  onChange={(e) => patchLetter(selected.id, { title: e.target.value })}
-                  placeholder={selected.section === 'open_when' ? 'open when you’re… (e.g. sad)' : 'title (shows in the list)'}
-                  maxLength={200}
-                  className="w-full bg-transparent outline-none font-heading font-medium text-4xl tracking-tight placeholder:text-white/20"
-                />
-                <input
-                  value={selected.greeting}
-                  onChange={(e) => patchLetter(selected.id, { greeting: e.target.value })}
-                  placeholder={`greeting (optional), e.g. hi ${reader?.toLowerCase() ?? 'you'},`}
-                  maxLength={200}
-                  className="w-full bg-transparent outline-none font-body italic text-2xl text-white/80 mt-4 placeholder:text-white/20"
-                />
-                <div className="mt-6 -ml-[42px]">
-                  {body?.id === selected.id ? (
-                    <Suspense fallback={<p className="pl-[42px] font-body italic text-white/40">loading editor...</p>}>
-                      <LetterEditor key={selected.id} initial={body.doc} onChange={(doc) => saveBody(selected.id, doc)} />
-                    </Suspense>
-                  ) : (
-                    <p className="pl-[42px] font-body italic text-white/40">loading...</p>
-                  )}
-                </div>
+                  </LetterCanvas>
+                ) : (
+                  <p className="text-center font-body italic text-white/40">loading...</p>
+                )}
               </div>
             </div>
 
@@ -451,6 +539,36 @@ export const WritePage: React.FC = () => {
             setBannerPicker(false);
           }}
         />
+      )}
+      {insertPicker && (
+        <MediaPicker
+          title="Add an image"
+          tabs={['upload', 'gifs', 'stickers', 'link']}
+          initialTab={insertPicker}
+          folder="letters"
+          onClose={() => setInsertPicker(null)}
+          onPick={(m) => {
+            if (editorRef.current) insertAtCursor(editorRef.current, { type: 'image', props: { url: m.src, ...(m.width ? { previewWidth: Math.min(m.width, 360) } : {}) } });
+            setInsertPicker(null);
+          }}
+        />
+      )}
+      {stickerPicker && (
+        <MediaPicker
+          title="Add a sticker"
+          tabs={['stickers', 'gifs', 'upload', 'link']}
+          folder="letters"
+          onClose={() => setStickerPicker(false)}
+          onPick={(m) => {
+            addSticker(m.src, m.width);
+            setStickerPicker(false);
+          }}
+        />
+      )}
+      {bgSheet && (
+        <Sheet title="Background" onClose={() => setBgSheet(false)}>
+          <PagePanel background={look.background} setBackground={(background) => setLook({ ...look, background })} folder="letters" />
+        </Sheet>
       )}
       {toastNode}
       {dialog}

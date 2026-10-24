@@ -4,6 +4,10 @@ import { LockedError, openLetter, otherName, type OpenedLetter } from '../utils/
 import { lockText } from '../features/letters/lock';
 import { useNow } from '../features/letters/useNow';
 import { LetterBanner } from '../features/letters/LetterBanner';
+import { LetterCanvas } from '../features/letters/LetterCanvas';
+import { PageBackgroundImage } from '../features/letters/PageBackground';
+import { DEFAULT_LOOK } from '../features/letters/banner';
+import { themeFor } from '../features/intro/doc';
 
 // BlockNote is big; only load it when a letter is actually being read
 const LetterBody = lazy(() => import('../features/letters/LetterBody'));
@@ -21,6 +25,8 @@ export const LetterReadPage: React.FC = () => {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [writer, setWriter] = useState<string | null>(null);
   const now = useNow(1000);
+  const look = (state.kind === 'open' && state.letter.look) || DEFAULT_LOOK;
+  const theme = themeFor(look.background);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,19 +41,24 @@ export const LetterReadPage: React.FC = () => {
   }, [id]);
 
   return (
-    <div className="relative w-full min-h-dvh bg-[#151515] text-white overflow-x-hidden selection:bg-brand-cyan selection:text-black">
-      <div className="px-6 pt-6">
+    <div
+      className="relative w-full min-h-dvh text-white overflow-x-hidden selection:bg-brand-cyan selection:text-black"
+      style={{ backgroundColor: theme.bg }}
+    >
+      {theme.image && <PageBackgroundImage src={theme.image} />}
+      <div className="relative z-10 px-6 pt-6">
         <button
           type="button"
           onClick={() => navigate('/lettersPage')}
-          className="text-white/50 hover:text-white transition-colors duration-200 text-sm font-body cursor-pointer flex items-center gap-1.5"
+          className="opacity-60 hover:opacity-100 transition-opacity duration-200 text-sm font-body cursor-pointer flex items-center gap-1.5"
+          style={{ color: theme.strong }}
         >
           <span>&larr;</span>
           <span>All letters</span>
         </button>
       </div>
 
-      <main className="max-w-[640px] mx-auto px-6 pt-10 pb-20">
+      <main className={`relative ${state.kind === 'open' ? 'pt-6' : 'max-w-[640px] mx-auto px-6 pt-10'} pb-20`}>
         {state.kind === 'loading' && <p className="font-body italic text-white/40">opening...</p>}
 
         {state.kind === 'error' && <p className="font-body italic text-rose-300 text-lg">couldn't open this one, try again?</p>}
@@ -72,23 +83,31 @@ export const LetterReadPage: React.FC = () => {
 
         {state.kind === 'open' && (
           <article className="animate-fade-in">
-            {state.letter.banner && (
-              <div className="-mx-2 sm:mx-0 mb-8">
-                <LetterBanner banner={state.letter.banner} />
+            <LetterCanvas stickers={look.stickers}>
+              {state.letter.banner && (
+                <div className="mb-6">
+                  <LetterBanner banner={state.letter.banner} />
+                </div>
+              )}
+              <h1 className="font-heading font-medium text-4xl tracking-tight leading-tight break-words" style={{ color: theme.strong }}>
+                {state.letter.title}
+              </h1>
+              {state.letter.greeting && (
+                <p className="font-body italic text-2xl mt-4" style={{ color: theme.ink }}>
+                  {state.letter.greeting}
+                </p>
+              )}
+              <div className="mt-6">
+                <Suspense fallback={<p className="font-body italic opacity-40">...</p>}>
+                  <LetterBody doc={state.letter.doc} ink={theme.ink} />
+                </Suspense>
               </div>
-            )}
-            <h1 className="font-heading font-medium text-4xl sm:text-5xl tracking-tight leading-tight break-words">
-              {state.letter.title}
-            </h1>
-            {state.letter.greeting && (
-              <p className="font-body italic text-2xl text-white/80 mt-6">{state.letter.greeting}</p>
-            )}
-            <div className="mt-6 -mx-[3px]">
-              <Suspense fallback={<p className="font-body italic text-white/40">...</p>}>
-                <LetterBody doc={state.letter.doc} />
-              </Suspense>
-            </div>
-            {writer && <p className="mt-10 font-body italic text-white/50 text-lg">&mdash; {writer}</p>}
+              {writer && (
+                <p className="mt-10 font-body italic text-lg opacity-60" style={{ color: theme.ink }}>
+                  &mdash; {writer}
+                </p>
+              )}
+            </LetterCanvas>
           </article>
         )}
       </main>

@@ -172,7 +172,7 @@ export const IntroBuilderPage: React.FC = () => {
 
   const panels = (
     <>
-      <PagePanel doc={doc} setBackground={setBackground} />
+      <PagePanel background={doc.background} setBackground={setBackground} />
       <div className="h-px bg-white/10 my-5" />
       <p className="font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-3">Stickers</p>
       <StickerPalette onAdd={addSticker} />
@@ -290,7 +290,7 @@ export const IntroBuilderPage: React.FC = () => {
 
       {sheet === 'page' && (
         <Sheet title="Page" onClose={() => setSheet(null)}>
-          <PagePanel doc={doc} setBackground={setBackground} />
+          <PagePanel background={doc.background} setBackground={setBackground} />
         </Sheet>
       )}
       {sheet === 'stickers' && (

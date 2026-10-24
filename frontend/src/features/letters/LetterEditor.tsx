@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import type { PartialBlock } from '@blocknote/core';
+import type { BlockNoteEditor, PartialBlock } from '@blocknote/core';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/ariakit';
 import '@blocknote/ariakit/style.css';
@@ -10,13 +10,19 @@ import { SlashMenu } from '../editor/SlashMenu';
 import { RichToolbar } from './RichToolbar';
 import { resolveMedia, uploadMedia } from '../../lib/media';
 
+export type LetterEditorInstance = BlockNoteEditor<typeof letterSchema.blockSchema, typeof letterSchema.inlineContentSchema, typeof letterSchema.styleSchema>;
+
 interface LetterEditorProps {
   initial: unknown[];
   onChange: (doc: unknown[]) => void;
+  /** Text colour for the letter's background. */
+  ink?: string;
+  /** Hands the editor to the quick-insert bar. */
+  onReady?: (editor: LetterEditorInstance) => void;
 }
 
 /** The Notion-style letter body editor: `/` for blocks, select text for the toolbar. Lazy-loaded. */
-const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange }) => {
+const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange, ink, onReady }) => {
   useEffect(ensureLetterFonts, []);
 
   const editor = useCreateBlockNote({
@@ -27,18 +33,23 @@ const LetterEditor: React.FC<LetterEditorProps> = ({ initial, onChange }) => {
     placeholders: { emptyDocument: "write anything... type '/' for headings, images, lists" },
   });
 
+  useEffect(() => {
+    onReady?.(editor);
+  }, [editor, onReady]);
+
   return (
+    <div className="letter-body letter-editor" style={{ '--page-ink': ink ?? '#e8e8e8' } as React.CSSProperties}>
     <BlockNoteView
       editor={editor}
       theme="dark"
       formattingToolbar={false}
       slashMenu={false}
       onChange={() => onChange(editor.document)}
-      className="letter-body letter-editor"
     >
       <RichToolbar />
       <SlashMenu folder="letters" />
     </BlockNoteView>
+    </div>
   );
 };
 

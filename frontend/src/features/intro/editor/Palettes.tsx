@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Background, IntroDoc, Sticker } from '../doc';
+import type { Background, Sticker } from '../doc';
 import { MediaPicker } from '../../media/MediaPicker';
 import { Chip, Row } from './ui';
 
@@ -14,8 +14,11 @@ const PRESETS: { value: 'dark' | 'paper' | 'purple'; label: string; swatch: stri
 const sectionTitle = 'font-mono text-[10px] tracking-[0.22em] text-white/45 uppercase mb-2';
 
 /** Background: a preset, any colour, or an image (upload, GIF or link). */
-export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background) => void }> = ({ doc, setBackground }) => {
-  const bg = doc.background;
+export const PagePanel: React.FC<{ background: Background; setBackground: (b: Background) => void; folder?: 'intro' | 'letters' }> = ({
+  background: bg,
+  setBackground,
+  folder = 'intro',
+}) => {
   const [picking, setPicking] = useState(false);
 
   return (
@@ -55,7 +58,7 @@ export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background)
         <MediaPicker
           title="Background"
           tabs={['upload', 'gifs', 'link']}
-          folder="intro"
+          folder={folder}
           onClose={() => setPicking(false)}
           onPick={(m) => {
             setBackground({ kind: 'image', value: m.src });
@@ -68,7 +71,7 @@ export const PagePanel: React.FC<{ doc: IntroDoc; setBackground: (b: Background)
 };
 
 /** Stickers: one button, then search KLIPY, upload, or paste a link. */
-export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void }> = ({ onAdd }) => {
+export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void; folder?: 'intro' | 'letters' }> = ({ onAdd, folder = 'intro' }) => {
   const [picking, setPicking] = useState(false);
   return (
     <>
@@ -84,7 +87,7 @@ export const StickerPalette: React.FC<{ onAdd: (s: NewSticker) => void }> = ({ o
         <MediaPicker
           title="Add a sticker"
           tabs={['stickers', 'gifs', 'upload', 'link']}
-          folder="intro"
+          folder={folder}
           onClose={() => setPicking(false)}
           onPick={(m) => {
             onAdd({ kind: 'image', value: m.src, width: m.width ? Math.min(160, Math.max(80, Math.round(m.width * 0.6))) : 140 });

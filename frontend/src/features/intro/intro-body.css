@@ -1,7 +1,7 @@
 /* The intro page: text colour follows the page background, roomy spacing between blocks */
 .intro-body .bn-container,
 .intro-body.letter-body .bn-container {
-  --bn-colors-editor-text: var(--intro-ink);
+  --bn-colors-editor-text: var(--page-ink, #e8e8e8);
 }
 
 .intro-body .bn-editor {
