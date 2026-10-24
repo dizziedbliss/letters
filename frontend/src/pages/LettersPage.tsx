@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LetterView } from '../components/letters/LetterView';
 import { useRandomLetter } from '../hooks/useRandomLetter';
+import { useMyIntro, paragraphs } from '../hooks/useMyIntro';
 
 interface LettersPageProps {
   onBack?: () => void;
@@ -9,7 +10,8 @@ interface LettersPageProps {
 
 export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
   const navigate = useNavigate();
-  const { letter, status, next } = useRandomLetter();
+  const { letter, author, status, next } = useRandomLetter();
+  const { intro } = useMyIntro();
 
   const handleBack = () => {
     if (onBack) {
@@ -31,26 +33,33 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
         <span>Back</span>
       </button>
 
+      {/* Temporary door to the writing page until the hub exists */}
+      <button
+        type="button"
+        onClick={() => navigate('/write')}
+        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors duration-200 text-sm font-body cursor-pointer"
+      >
+        write a letter &rarr;
+      </button>
+
       {/* Central Card / Layout Container */}
       <div className="w-full max-w-[960px] flex flex-col md:flex-row items-center md:items-end justify-between gap-10 md:gap-14 my-auto">
         
         {/* Left Column: Heading, Subtitle & Action */}
         <div className="flex-1 flex flex-col items-start text-left max-w-[580px] max-w-full break-words">
-          {/* Main Title: "Hello, Saumiiiiii" */}
+          {/* Main Title: "Hello, <nickname>", written by the other person */}
           <h1 className="text-4xl sm:text-5xl md:text-[52px] font-normal tracking-tight text-white mb-8 leading-tight">
             <span className="font-heading font-medium">Hello, </span>
-            <span className="font-body italic font-normal">Saumiiiiii</span>
+            <span className="font-body italic font-normal">{intro?.nickname ?? '\u00A0'}</span>
           </h1>
 
           {/* Intro until she asks for a letter, then the shuffled letters */}
           <div className="mb-8 min-h-[4rem]">
             {letter ? (
-              <LetterView key={letter.id} letter={letter} />
+              <LetterView key={letter.id} letter={letter} author={author} />
             ) : (
               <div className="space-y-6 text-base sm:text-lg md:text-[21px] text-[#e8e8e8] font-body leading-relaxed">
-                <p>
-                  ILOVEYOUUUUUUUUUUUUUUUUUUUUUUUUUUSOOOOOOOOOOOOOOOMCUHHHHHHHHHHHHHHHHHHHHHHHH ILOVEYOUSOOMUCHHHHH ILOVEYOUSOOOSOSOSOOSSOOSSOOSOMUCHHHH ILOVEYOUUSOOOOMUCHHHHMUCHMUHCUHCHCHH ILOVEYOUUUUUUUUUUUUUUUUUSAUUMMMIIIIIIII HEHHE &lt;3
-                </p>
+                {intro && paragraphs(intro.note).map((p, i) => <p key={i}>{p}</p>)}
               </div>
             )}
             {status === 'error' && (

@@ -3,6 +3,8 @@ import {
   TILE_SIZE,
   BORDER_COLOR,
   ACTIVE_RGB,
+  INACTIVE_COLOR,
+  PAPER_RGB,
   GLOW_ACTIVE_RGB,
   GLOW_INACTIVE_RGB,
   generateDefaultHighlights,
@@ -61,9 +63,9 @@ export const TileGridBackground: React.FC = () => {
     const tileColor = (i: number) => {
       const f = fill[i];
       const h = hover[i];
-      let R = 255 + (ACTIVE_RGB[0] - 255) * f;
-      let G = 255 + (ACTIVE_RGB[1] - 255) * f;
-      let B = 255 + (ACTIVE_RGB[2] - 255) * f;
+      let R = PAPER_RGB[0] + (ACTIVE_RGB[0] - PAPER_RGB[0]) * f;
+      let G = PAPER_RGB[1] + (ACTIVE_RGB[1] - PAPER_RGB[1]) * f;
+      let B = PAPER_RGB[2] + (ACTIVE_RGB[2] - PAPER_RGB[2]) * f;
       // hover: inactive tiles get a faint purple wash, active tiles brighten
       const wash = 0.15 * h * (1 - f);
       R += (ACTIVE_RGB[0] - R) * wash;
@@ -78,7 +80,7 @@ export const TileGridBackground: React.FC = () => {
       const ch = height / rows;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = INACTIVE_COLOR;
       ctx.fillRect(0, 0, width, height);
 
       // Base pass: all tiles at rest scale, batched by identical colour
@@ -119,7 +121,7 @@ export const TileGridBackground: React.FC = () => {
 
         ctx.save();
         if (scale < 1) {
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = INACTIVE_COLOR;
           ctx.fillRect(c * cw, r * ch, cw, ch);
         }
         if (g > 0.01) {

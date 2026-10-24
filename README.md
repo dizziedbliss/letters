@@ -1,17 +1,18 @@
 # lettersvsdvsdvsvssbbdbdb
 ## Setup
 
-1. **Supabase:** run `backend/schema.sql` in the SQL Editor.
-2. **Env vars** (see `.env.example`): `ADMIN_PASSWORD`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
-   Put them in `.env` locally, and in Vercel under Settings > Environment Variables.
-3. **Vercel:** Root Directory = repo root (not `frontend`). `vercel.json` handles build, `/api` and SPA routing.
+1. **Supabase, one time:**
+   - Authentication > Sign In / Providers: turn OFF "Allow new users to sign up".
+   - Authentication > Users: add the two accounts (email + password; the password is the secret code typed on the landing page).
+   - SQL Editor: run `supabase/migrations/` in order (`0000`, `0001`, then `0002` after filling in the emails).
+2. **Env vars** (see `frontend/.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ACCOUNT_EMAILS`.
+   Put them in `frontend/.env` locally, and in Vercel under Settings > Environment Variables.
+3. **Vercel:** Root Directory = repo root. `vercel.json` handles install, build and SPA routing.
 
 ## Local dev
 
 ```
-npm install && npm install --prefix frontend
-npm run dev:api                    # API on :3001
-npm run dev --prefix frontend      # Vite, proxies /api to :3001
+cd frontend && npm ci && npm run dev
 ```
 
-Type the admin password into the landing page field to reach `/admin`.
+Type your secret code into the landing page field. Letters are written at `/write`.

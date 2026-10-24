@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePageTransition } from '../components/transition/context';
+import { useMyIntro, paragraphs } from '../hooks/useMyIntro';
 import charactersImg from '../assets/characters.png';
 
 interface LettersPageProps {
@@ -8,12 +10,14 @@ interface LettersPageProps {
 
 export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
   const navigate = useNavigate();
+  const { go } = usePageTransition();
+  const { intro, ready } = useMyIntro();
 
   const handleBack = () => {
     if (onBack) {
       onBack();
     } else {
-      navigate('/');
+      go('/home', { label: 'Home', code: '00' });
     }
   };
 
@@ -34,26 +38,18 @@ export const LettersPage: React.FC<LettersPageProps> = ({ onBack }) => {
         
         {/* Left Column: Heading, Subtitle & Action */}
         <div className="flex-1 flex flex-col items-start text-left max-w-[580px] max-w-full">
-          {/* Main Title: "Hello, Saumiiiiii" */}
+          {/* Main Title: "Hello, <nickname>", written by the other person */}
           <h1 className="text-4xl sm:text-5xl md:text-[52px] font-normal tracking-tight text-white mb-8 leading-tight">
             <span className="font-heading font-medium">Hello, </span>
-            <span className="font-body italic font-normal">Saumiiiiii</span>
+            <span className="font-body italic font-normal">{intro?.nickname ?? '\u00A0'}</span>
           </h1>
 
           {/* Description Body in Cardo */}
-          <div className="space-y-6 text-base sm:text-lg md:text-[21px] text-[#e8e8e8] font-body leading-relaxed mb-8">
-            <p>
-              This thing is currently under construction lol, apparently the
-              owner of this website is currently doing something totally
-              useless, uhm please forgive him... since he has done this much—
-              he’ll be updating this soon.
-            </p>
-            <p>
-              please be in touch &lt;3
-            </p>
-            <p className="pt-2 sm:text-[16px]">
-              until then u can read these :3
-            </p>
+          <div
+            className={`space-y-6 text-base sm:text-lg md:text-[21px] text-[#e8e8e8] font-body leading-relaxed mb-8 whitespace-pre-line ${ready ? 'animate-fade-in' : 'invisible'}`}
+          >
+            {intro && paragraphs(intro.intro).map((p, i) => <p key={i}>{p}</p>)}
+            {intro?.aside && <p className="pt-2 sm:text-[16px]">{intro.aside}</p>}
           </div>
 
           {/* Action Button: "This :3" */}

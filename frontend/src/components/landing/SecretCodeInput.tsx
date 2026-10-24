@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { login } from '../../utils/api';
 
 interface SecretCodeInputProps {
-  onUnlock?: (code: string, role: 'guest' | 'admin') => void;
+  onUnlock?: () => void;
 }
 
 export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) => {
@@ -12,10 +12,10 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
   const [isSuccess, setIsSuccess] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
 
-  const succeed = (value: string, role: 'guest' | 'admin') => {
+  const succeed = () => {
     setError(null);
     setIsSuccess(true);
-    setTimeout(() => onUnlock?.(value, role), 350);
+    setTimeout(() => onUnlock?.(), 350);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,11 +30,11 @@ export const SecretCodeInput: React.FC<SecretCodeInputProps> = ({ onUnlock }) =>
     }
 
     setIsChecking(true);
-    const role = await login(trimmed);
+    const ok = await login(trimmed);
     setIsChecking(false);
 
-    if (role) {
-      succeed(trimmed, role === 'admin' ? 'admin' : 'guest');
+    if (ok) {
+      succeed();
     } else {
       setError("you're not my special one, please...");
       triggerShake();

@@ -3,7 +3,8 @@
 export const TILE_SIZE = 36;
 export const BORDER_COLOR = 'rgba(0, 0, 0, 0.20)'; // 20% opacity border
 export const ACTIVE_COLOR = '#6100D8'; // Purple
-export const INACTIVE_COLOR = '#ffffff'; // White
+export const INACTIVE_COLOR = '#e6e7eb'; // Pale grey paper (matches --color-paper)
+export const PAPER_RGB: [number, number, number] = [230, 231, 235];
 export const ACTIVE_RGB: [number, number, number] = [97, 0, 216];
 export const GLOW_ACTIVE_RGB: [number, number, number] = [97, 0, 216];
 export const GLOW_INACTIVE_RGB: [number, number, number] = [0, 216, 255];

@@ -4,12 +4,12 @@ import { HeroContent } from '../components/landing/HeroContent';
 import { SecretCodeInput } from '../components/landing/SecretCodeInput';
 
 interface LandingPageProps {
-  onUnlock?: (code: string, role: 'guest' | 'admin') => void;
+  onUnlock?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onUnlock }) => {
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-white flex items-center justify-center">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-paper flex items-center justify-center">
       {/* 1. Interactive Responsive Background Tile Grid */}
       <TileGridBackground />
 
