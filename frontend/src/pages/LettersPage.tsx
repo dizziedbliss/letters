@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTransition } from '../components/transition/context';
-import { letterIndex, otherName, type IndexLetter } from '../utils/api';
+import { letterIndex, otherName, threadsApi, type IndexLetter } from '../utils/api';
 import { LetterCard } from '../features/letters/LetterCard';
 import { pickRandom, usageText } from '../features/letters/lock';
 import { useNow } from '../features/letters/useNow';
@@ -14,6 +14,7 @@ export const LettersPage: React.FC = () => {
   const [writer, setWriter] = useState<string | null>(null);
   const [armed, setArmed] = useState<number | null>(null);
   const [error, setError] = useState(false);
+  const [replies, setReplies] = useState<Map<number, number>>(new Map()); // letters with new replies
 
   const load = useCallback(() => {
     letterIndex()
@@ -24,6 +25,7 @@ export const LettersPage: React.FC = () => {
   useEffect(() => {
     load();
     otherName().then(setWriter).catch(() => {});
+    threadsApi.unread().then(setReplies).catch(() => {});
   }, [load]);
 
   // When a countdown runs out, ask the database again (it's the one that decides)
@@ -138,7 +140,7 @@ export const LettersPage: React.FC = () => {
               {unread.length > 0 && (
                 <div className="mt-4 space-y-2.5">
                   {unread.map((l) => (
-                    <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={armed === l.id} onTap={tap} />
+                    <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={armed === l.id} newReplies={replies.has(l.id)} onTap={tap} />
                   ))}
                 </div>
               )}
@@ -148,7 +150,7 @@ export const LettersPage: React.FC = () => {
                   <p className="font-mono text-[11px] tracking-[0.25em] text-white/35 mt-8 mb-3">ALREADY READ</p>
                   <div className="space-y-2">
                     {read.map((l) => (
-                      <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={false} compact onTap={tap} />
+                      <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={false} compact newReplies={replies.has(l.id)} onTap={tap} />
                     ))}
                   </div>
                 </>
@@ -166,7 +168,7 @@ export const LettersPage: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   {openWhen.map((l) => (
-                    <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={armed === l.id} compact onTap={tap} />
+                    <LetterCard key={l.id} letter={l} writer={writer} now={now} armed={armed === l.id} compact newReplies={replies.has(l.id)} onTap={tap} />
                   ))}
                 </div>
               </section>

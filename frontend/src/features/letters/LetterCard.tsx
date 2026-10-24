@@ -23,11 +23,13 @@ interface LetterCardProps {
   now: number;
   armed: boolean; // first tap on a quota letter arms it; second tap opens
   compact?: boolean;
+  /** New replies or reactions from the writer since you last looked */
+  newReplies?: boolean;
   onTap: (l: IndexLetter) => void;
 }
 
 /** One letter in the index: titled or sealed, open or locked (with the reason). */
-export const LetterCard: React.FC<LetterCardProps> = ({ letter: l, writer, now, armed, compact, onTap }) => {
+export const LetterCard: React.FC<LetterCardProps> = ({ letter: l, writer, now, armed, compact, newReplies, onTap }) => {
   const read = !!l.openedAt;
   const left = leftText(l);
 
@@ -73,6 +75,7 @@ export const LetterCard: React.FC<LetterCardProps> = ({ letter: l, writer, now, 
             )}
           </div>
         </div>
+        {newReplies && <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500 font-mono text-[9px] tracking-wider text-white">NEW ♡</span>}
         {!l.locked && !read && <span className="w-2 h-2 rounded-full bg-brand-cyan shrink-0" aria-label="unread" />}
       </div>
     </button>

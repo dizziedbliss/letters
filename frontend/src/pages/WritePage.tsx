@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTransition } from '../components/transition/context';
-import { groupsApi, isAuthError, lettersApi, logout as apiLogout, otherName, type LetterGroup, type MyLetter } from '../utils/api';
+import { groupsApi, isAuthError, lettersApi, logout as apiLogout, otherName, threadsApi, type LetterGroup, type MyLetter } from '../utils/api';
 import { LetterSettings } from '../features/letters/write/LetterSettings';
 import { GroupsSheet } from '../features/letters/write/GroupsSheet';
 import { useToast } from '../components/common/Toast';
@@ -21,6 +21,7 @@ import { DESIGN_WIDTH, newId, themeFor, type Sticker } from '../features/intro/d
 import type { MediaTab } from '../features/media/MediaPicker';
 
 // BlockNote is big; load it only once a letter is open for editing
+const LetterThread = lazy(() => import('../features/letters/thread/LetterThread'));
 const LetterEditor = lazy(() => import('../features/letters/LetterEditor'));
 
 const SAVE_MS = 800;
@@ -51,6 +52,7 @@ export const WritePage: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showGroups, setShowGroups] = useState(false);
   const [unsaved, setUnsaved] = useState(0);
+  const [unread, setUnread] = useState<Map<number, number>>(new Map());
   const { show: showToast, node: toastNode } = useToast();
   const { confirm, dialog } = useConfirm();
 
@@ -112,9 +114,13 @@ export const WritePage: React.FC = () => {
       .then(([l, g]) => {
         setLetters(l);
         setGroups(g);
+        // opened from a reply notification: /write?letter=12
+        const want = Number(new URLSearchParams(window.location.search).get('letter'));
+        if (want && l.some((x) => x.id === want)) setSelectedId(want);
       })
       .catch(fail);
     otherName().then(setReader).catch(() => {});
+    threadsApi.unread().then(setUnread).catch(() => {});
   }, [fail]);
 
   // load the body whenever a different letter is opened
@@ -141,6 +147,7 @@ export const WritePage: React.FC = () => {
 
   // ---- edits ----
   const patchLetter = (id: number, patch: Partial<MyLetter>, ms = SAVE_MS) => {
+    if ('title' in patch || 'greeting' in patch) markEdited(id);
     setLetters((ls) => ls?.map((l) => (l.id === id ? { ...l, ...patch } : l)) ?? ls);
     metaPatches.current.set(id, { ...metaPatches.current.get(id), ...patch });
     schedule(
@@ -157,10 +164,23 @@ export const WritePage: React.FC = () => {
     );
   };
 
-  const saveBody = (id: number, doc: unknown[]) => schedule(`body:${id}`, () => lettersApi.saveBody(id, doc));
+  // A sent letter that changes shows "edited" (the database decides for real; this is just the header)
+  const markEdited = (id: number) =>
+    setLetters((ls) => ls?.map((l) => (l.id === id && l.publishedAt && !l.editedAt ? { ...l, editedAt: new Date().toISOString() } : l)) ?? ls);
+
+  const saveBody = (id: number, doc: unknown[]) => {
+    markEdited(id);
+    schedule(`body:${id}`, () => lettersApi.saveBody(id, doc));
+  };
 
   const open = (id: number) => {
     flushAll();
+    setUnread((u) => {
+      if (!u.has(id)) return u;
+      const next = new Map(u);
+      next.delete(id);
+      return next;
+    });
     setBody(null);
     setSelectedId(id);
     setShowSettings(false);
@@ -244,6 +264,7 @@ export const WritePage: React.FC = () => {
     if (!body) return;
     const id = body.id;
     setBody({ ...body, look: next });
+    markEdited(id);
     schedule(`look:${id}`, () => lettersApi.saveLook(id, next), 500);
   };
   const setStickers = (stickers: Sticker[]) => setLook({ ...look, stickers });
@@ -286,6 +307,7 @@ export const WritePage: React.FC = () => {
     if (!body) return;
     const id = body.id;
     setBody({ ...body, banner });
+    markEdited(id);
     schedule(`banner:${id}`, () => lettersApi.saveBanner(id, banner), 400);
   };
 
@@ -377,6 +399,7 @@ export const WritePage: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <span className="font-body text-lg leading-snug truncate flex-1">{l.title || 'untitled'}</span>
                             <span className="shrink-0 flex gap-1 font-mono text-[9px] tracking-wider">
+                              {unread.has(l.id) && <span className="px-1.5 py-0.5 rounded bg-rose-500 text-white">NEW ♡</span>}
                               {l.sealed && <span className="px-1.5 py-0.5 rounded bg-brand-purple/40 text-white/90">SEALED</span>}
                               {l.rule && <span className="px-1.5 py-0.5 rounded bg-white/10 text-white/70">{RULE_BADGE[l.rule.kind]}</span>}
                             </span>
@@ -417,7 +440,7 @@ export const WritePage: React.FC = () => {
                     &larr; letters
                   </button>
                   <span className="flex-1 min-w-0 truncate font-mono text-[10px] tracking-[0.2em] text-white/40">
-                    {selected.publishedAt ? 'SENT' : 'DRAFT'} · {unsaved ? 'SAVING…' : 'SAVED'}
+                    {selected.publishedAt ? (selected.editedAt ? 'SENT · EDITED' : 'SENT') : 'DRAFT'} · {unsaved ? 'SAVING…' : 'SAVED'}
                   </span>
                   <button
                     type="button"
@@ -515,6 +538,13 @@ export const WritePage: React.FC = () => {
                   </LetterCanvas>
                 ) : (
                   <p className="text-center font-body italic text-white/40">loading...</p>
+                )}
+                {selected.publishedAt && body?.id === selected.id && (
+                  <div className="relative max-w-[480px] mx-auto px-4 mt-10" onClick={(e) => e.stopPropagation()}>
+                    <Suspense fallback={null}>
+                      <LetterThread letterId={selected.id} />
+                    </Suspense>
+                  </div>
                 )}
               </div>
             </div>
