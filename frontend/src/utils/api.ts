@@ -38,7 +38,14 @@ export async function login(code: string): Promise<boolean> {
   return false;
 }
 
-export const logout = () => supabase.auth.signOut();
+export const logout = () => {
+  try {
+    sessionStorage.removeItem('signed-media-v1'); // the image links cache in lib/media.ts
+  } catch {
+    // blocked storage: nothing was cached
+  }
+  return supabase.auth.signOut();
+};
 
 /** Save this browser's timezone on my profile, so letter quotas reset on my Monday. */
 export async function syncTimezone(): Promise<void> {

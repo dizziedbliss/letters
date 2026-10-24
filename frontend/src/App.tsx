@@ -1,70 +1,30 @@
+import { Suspense, type ReactElement } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import './index.css'
 import LandingPage from './pages/LandingPage'
-import SorryUpdating from './pages/SorryUpdating'
-import LettersPage from './pages/LettersPage'
-import WritePage from './pages/WritePage'
-import HomePage from './pages/HomePage'
-import IntroBuilderPage from './pages/IntroBuilderPage'
-import LetterReadPage from './pages/LetterReadPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import { usePageTransition } from './components/transition/context'
+import { pages } from './routes'
+
+// Same blank as ProtectedRoute's "checking" screen, so a page loading never flashes
+const Blank = () => <div className="min-h-dvh bg-[#151515]" />
 
 function App() {
   const { go } = usePageTransition()
+  const guard = (el: ReactElement) => <ProtectedRoute>{el}</ProtectedRoute>
 
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage onUnlock={() => go('/home', { label: 'Welcome', code: '00' })} />} />
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/letters"
-        element={
-          <ProtectedRoute>
-            <SorryUpdating />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/lettersPage"
-        element={
-          <ProtectedRoute>
-            <LettersPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/letters/read/:id"
-        element={
-          <ProtectedRoute>
-            <LetterReadPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/write/intro"
-        element={
-          <ProtectedRoute>
-            <IntroBuilderPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/write"
-        element={
-          <ProtectedRoute>
-            <WritePage />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <Suspense fallback={<Blank />}>
+      <Routes>
+        <Route path="/" element={<LandingPage onUnlock={() => go('/home', { label: 'Welcome', code: '00' })} />} />
+        <Route path="/home" element={guard(<pages.home />)} />
+        <Route path="/letters" element={guard(<pages.intro />)} />
+        <Route path="/lettersPage" element={guard(<pages.letters />)} />
+        <Route path="/letters/read/:id" element={guard(<pages.read />)} />
+        <Route path="/write/intro" element={guard(<pages.builder />)} />
+        <Route path="/write" element={guard(<pages.write />)} />
+      </Routes>
+    </Suspense>
   )
 }
 

@@ -24,7 +24,7 @@ export const LetterReadPage: React.FC = () => {
   const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [writer, setWriter] = useState<string | null>(null);
-  const now = useNow(1000);
+  const now = useNow(state.kind === 'locked' ? 1000 : null);
   const look = (state.kind === 'open' && state.letter.look) || DEFAULT_LOOK;
   const theme = themeFor(look.background);
 

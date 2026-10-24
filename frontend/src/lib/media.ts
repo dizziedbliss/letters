@@ -9,6 +9,7 @@ const ASSETS: Record<string, string> = { characters: charactersImg };
 export const MEDIA_BUCKET = 'intro-media';
 
 const SIGNED_URL_TTL = 60 * 60; // seconds
+const REUSE_FOR = (SIGNED_URL_TTL - 5 * 60) * 1000; // hand out the same link until it's nearly expired
 const MAX_SIDE = 1600;
 const MAX_GIF_BYTES = 8 * 1024 * 1024;
 
@@ -21,9 +22,49 @@ export async function resolveMedia(src: string): Promise<string> {
     const { demoMediaUrl } = await import('../demo/fakeFetch');
     return demoMediaUrl(path) ?? src;
   }
-  const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
-  if (error) throw error;
-  return data.signedUrl;
+  return signedUrl(path);
+}
+
+// Same image, same link: a fresh signed URL each time would be a new address, so the
+// browser would download the image again. Kept for the tab's session (survives reloads).
+const signed = new Map<string, Promise<string>>();
+const CACHE_KEY = 'signed-media-v1';
+
+function readCache(): Record<string, { url: string; until: number }> {
+  try {
+    return JSON.parse(sessionStorage.getItem(CACHE_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function signedUrl(path: string): Promise<string> {
+  const saved = readCache()[path];
+  if (saved && saved.until > Date.now()) return Promise.resolve(saved.url);
+  if (!signed.has(path)) {
+    const p = supabase.storage
+      .from(MEDIA_BUCKET)
+      .createSignedUrl(path, SIGNED_URL_TTL)
+      .then(({ data, error }) => {
+        signed.delete(path); // the session cache holds it from here
+        if (error) throw error;
+        try {
+          const cache = readCache();
+          const now = Date.now();
+          for (const k of Object.keys(cache)) if (cache[k].until <= now) delete cache[k];
+          cache[path] = { url: data.signedUrl, until: now + REUSE_FOR };
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        } catch {
+          // storage full or blocked: we just sign again next time
+        }
+        return data.signedUrl;
+      });
+    signed.set(path, p.catch((err) => {
+      signed.delete(path);
+      throw err;
+    }));
+  }
+  return signed.get(path)!;
 }
 
 /** Shrink a phone photo before it leaves the device (GIFs are kept as-is so they still move). */
@@ -50,7 +91,10 @@ export async function uploadMedia(file: File, folder: string): Promise<string> {
   const blob = await shrink(file);
   const ext = blob.type === 'image/gif' ? 'gif' : 'webp';
   const path = `${folder}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: blob.type });
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, blob, {
+    contentType: blob.type,
+    cacheControl: '31536000', // every upload gets a new name, so it never changes
+  });
   if (error) throw error;
   return `storage:${path}`;
 }

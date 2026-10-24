@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { preloadRoute } from '../routes';
 import { TileGridBackground } from '../components/background/TileGridBackground';
 import { HeroContent } from '../components/landing/HeroContent';
 import { SecretCodeInput } from '../components/landing/SecretCodeInput';
@@ -8,6 +9,9 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onUnlock }) => {
+  // Typing the code takes a few seconds; fetch the hub meanwhile
+  useEffect(() => preloadRoute('/home'), []);
+
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-paper flex items-center justify-center">
       {/* 1. Interactive Responsive Background Tile Grid */}

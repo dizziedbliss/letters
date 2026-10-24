@@ -6,6 +6,7 @@ import { Petals } from '../components/hub/Petals';
 import { markBootSeen, shouldBoot } from '../components/hub/boot';
 import { usePageTransition, WIPE } from '../components/transition/context';
 import { DoorTile } from '../components/hub/DoorTile';
+import { preloadAllWhenIdle } from '../routes';
 import { IconLetter, IconWrite, IconStar, IconPuzzle, IconPin, IconUs } from '../components/hub/icons';
 
 // Placeholder names/notes: each door gets its own copy as we build its page.
@@ -55,6 +56,7 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     myName().then(setName).catch(() => {});
+    preloadAllWhenIdle(); // the doors' pages are small; have them ready before a tap
     const tick = setInterval(() => setClock(timeNow()), 30_000);
     return () => clearInterval(tick);
   }, []);
