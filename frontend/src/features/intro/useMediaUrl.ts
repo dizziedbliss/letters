@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { resolveMedia } from '../../lib/media';
 import charactersImg from '../../assets/characters.png';
 
 // Bundled images the starter page can point at
 const ASSETS: Record<string, string> = { characters: charactersImg };
-
-const SIGNED_URL_TTL = 60 * 60; // seconds
 
 /**
  * Resolve an image `src` to something an <img> can load.
@@ -18,12 +16,9 @@ export function useMediaUrl(src: string | undefined) {
   useEffect(() => {
     if (!src?.startsWith('storage:')) return;
     let cancelled = false;
-    supabase.storage
-      .from('intro-media')
-      .createSignedUrl(src.slice(8), SIGNED_URL_TTL)
-      .then(({ data }) => {
-        if (!cancelled) setSigned({ src, url: data?.signedUrl ?? null });
-      });
+    resolveMedia(src)
+      .then((url) => !cancelled && setSigned({ src, url }))
+      .catch(() => !cancelled && setSigned({ src, url: null }));
     return () => {
       cancelled = true;
     };

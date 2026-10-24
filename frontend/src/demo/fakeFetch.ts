@@ -361,16 +361,24 @@ async function rest(req: Request, url: URL, table: string, me: string | null): P
   return pgError(405, 'method not allowed');
 }
 
-// ---- storage: keep uploads as data URLs in memory -----------------------------------
+// ---- storage: uploads become data URLs, kept in localStorage ------------------------
 
-const media = new Map<string, string>();
+const MEDIA_KEY = 'letters-demo-media-v1';
+const media: Record<string, string> = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(MEDIA_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+})();
+
+/** Used by lib/media.ts in demo mode: a "storage:" path -> its data URL. */
+export const demoMediaUrl = (path: string): string | null => media[path] ?? null;
 
 async function storage(req: Request, url: URL): Promise<Response> {
   const path = url.pathname.replace(/^\/storage\/v1\/object\//, '');
   if (req.method === 'POST' && path.startsWith('sign/')) {
-    const key = decodeURIComponent(path.replace(/^sign\/[^/]+\//, ''));
-    const dataUrl = media.get(key);
-    return json({ signedURL: dataUrl ?? '/favicon.svg' });
+    return json({ signedURL: '/favicon.svg' }); // the demo resolves media via demoMediaUrl instead
   }
   if (req.method === 'POST' || req.method === 'PUT') {
     const key = decodeURIComponent(path.replace(/^[^/]+\//, ''));
@@ -380,7 +388,12 @@ async function storage(req: Request, url: URL): Promise<Response> {
       fr.onload = () => resolve(fr.result as string);
       fr.readAsDataURL(blob);
     });
-    media.set(key, dataUrl);
+    media[key] = dataUrl;
+    try {
+      localStorage.setItem(MEDIA_KEY, JSON.stringify(media));
+    } catch {
+      // too big for localStorage: it still works until the tab closes
+    }
     return json({ Key: path, Id: crypto.randomUUID() });
   }
   return json({ message: 'not found' }, 404);

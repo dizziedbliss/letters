@@ -17,3 +17,47 @@
 .letter-body .bn-block-content[data-content-type='heading'] {
   font-family: var(--font-heading);
 }
+
+/* Writing: leave room on the left for BlockNote's + and drag handle, and a roomy page */
+.letter-editor .bn-editor {
+  padding-inline: 42px 0;
+  min-height: 40dvh;
+}
+
+.letter-editor .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before {
+  font-style: italic;
+  opacity: 0.45;
+}
+
+/* Ariakit ships a blue accent (#007acc); swap it for the site's purple/cyan */
+.bn-root .bn-ak-menu-item:hover,
+.bn-root .bn-ak-menu-item[aria-selected='true'],
+.bn-root .bn-ak-menu-item[data-active-item],
+.bn-root .bn-ak-select-item[data-active-item],
+.bn-root .bn-ak-tab[aria-selected='true'] {
+  background-color: #6100d8 !important;
+  color: #fff !important;
+}
+.bn-root .bn-ak-primary {
+  background-color: #00d8ff !important;
+  color: #000 !important;
+}
+.bn-root .bn-ak-input:focus-visible,
+.bn-root .bn-ak-input[data-focus-visible],
+.bn-root .bn-ak-popover:focus-visible,
+.bn-root .bn-ak-popover[data-focus-visible] {
+  outline-color: #00d8ff !important;
+  box-shadow: 0 0 0 2px #00d8ff !important;
+}
+.bn-root .bn-ak-button[data-selected],
+.bn-root .bn-ak-button[aria-pressed='true'] {
+  background-color: rgba(0, 216, 255, 0.18) !important;
+  color: #fff !important;
+}
+
+/* The formatting toolbar wraps instead of spilling across the page */
+.bn-root .bn-toolbar.bn-ak-toolbar {
+  flex-wrap: wrap;
+  max-width: min(600px, calc(100vw - 24px));
+  row-gap: 2px;
+}

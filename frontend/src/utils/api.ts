@@ -12,9 +12,6 @@ export interface Letter {
   updatedAt: string;
 }
 
-// PostgREST aliases (camelCase) so the rest of the app never sees snake_case
-const COLS = 'id, title, body, authorId:author_id, createdAt:created_at, updatedAt:updated_at';
-
 /** True when the error means "you're not (or no longer) signed in". */
 export const isAuthError = (err: unknown) => {
   const e = err as Partial<PostgrestError> & { status?: number };
@@ -244,40 +241,127 @@ export async function publishTheirPage(doc: IntroDoc): Promise<void> {
   }
 }
 
-// ---- writing ---------------------------------------------------------------
+// ---- writing (my own letters; bodies live in the author-only letter_bodies) ------
+
+export type LetterRule = { kind: 'date'; at: string } | { kind: 'after'; letter_id: number } | { kind: 'manual' };
+
+export interface MyLetter {
+  id: number;
+  title: string;
+  section: 'random' | 'open_when';
+  groupId: number | null;
+  sealed: boolean;
+  greeting: string;
+  rule: LetterRule | null;
+  unlockedByWriter: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /** When the other person opened it (they can't see it before then). */
+  openedAt: string | null;
+}
+
+const MY_COLS =
+  'id, title, section, groupId:group_id, sealed, greeting, rule, unlockedByWriter:unlocked_by_writer, createdAt:created_at, updatedAt:updated_at';
+
+type MetaPatch = Partial<Pick<MyLetter, 'title' | 'section' | 'sealed' | 'greeting' | 'rule' | 'groupId'>>;
+
+const toColumns = (p: MetaPatch) => {
+  const { groupId, ...rest } = p;
+  return { ...rest, ...(groupId !== undefined ? { group_id: groupId } : {}) };
+};
 
 export const lettersApi = {
-  mine: async (): Promise<Letter[]> => {
+  mine: async (): Promise<MyLetter[]> => {
     const userId = await currentUserId();
     if (!userId) throw Object.assign(new Error('not signed in'), { status: 401 });
-    const { data, error } = await supabase
-      .from('letters')
-      .select(COLS)
-      .eq('author_id', userId)
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as Letter[];
+    const [letters, opens] = await Promise.all([
+      supabase.from('letters').select(MY_COLS).eq('author_id', userId).order('updated_at', { ascending: false }),
+      supabase.from('letter_opens').select('letter_id, opened_at'),
+    ]);
+    if (letters.error) throw letters.error;
+    if (opens.error) throw opens.error;
+    const openedAt = new Map((opens.data ?? []).map((o) => [o.letter_id as number, o.opened_at as string]));
+    return ((letters.data ?? []) as unknown as Omit<MyLetter, 'openedAt'>[]).map((l) => ({
+      ...l,
+      openedAt: openedAt.get(l.id) ?? null,
+    }));
   },
 
-  create: async (title: string, body: string): Promise<Letter> => {
-    const { data, error } = await supabase.from('letters').insert({ title, body }).select(COLS).single();
+  create: async (section: MyLetter['section']): Promise<MyLetter> => {
+    const { data, error } = await supabase.from('letters').insert({ title: 'untitled', section }).select(MY_COLS).single();
     if (error) throw error;
-    return data as unknown as Letter;
+    const letter = data as unknown as Omit<MyLetter, 'openedAt'>;
+    const { error: e2 } = await supabase.from('letter_bodies').insert({ letter_id: letter.id, doc: [] });
+    if (e2) throw e2;
+    return { ...letter, openedAt: null };
   },
 
-  update: async (id: number, title: string, body: string): Promise<Letter> => {
+  updateMeta: async (id: number, patch: MetaPatch): Promise<Omit<MyLetter, 'openedAt'>> => {
     const { data, error } = await supabase
       .from('letters')
-      .update({ title, body, updated_at: new Date().toISOString() })
+      .update({ ...toColumns(patch), updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select(COLS)
+      .select(MY_COLS)
       .single();
     if (error) throw error;
-    return data as unknown as Letter;
+    return data as unknown as Omit<MyLetter, 'openedAt'>;
+  },
+
+  body: async (id: number): Promise<unknown[]> => {
+    const { data, error } = await supabase.from('letter_bodies').select('doc').eq('letter_id', id).maybeSingle();
+    if (error) throw error;
+    return (data?.doc as unknown[]) ?? [];
+  },
+
+  saveBody: async (id: number, doc: unknown[]): Promise<void> => {
+    const { error } = await supabase
+      .from('letter_bodies')
+      .upsert({ letter_id: id, doc, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
 
   remove: async (id: number): Promise<void> => {
     const { error } = await supabase.from('letters').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  /** For "I'll unlock it" letters: let the reader in now. */
+  unlock: async (id: number): Promise<void> => {
+    const { error } = await supabase.rpc('unlock_letter', { p_id: id });
+    if (error) throw error;
+  },
+};
+
+// ---- quota groups ("2 per week") -------------------------------------------------
+
+export interface LetterGroup {
+  id: number;
+  name: string;
+  quota: number | null; // null = unlimited
+  period: 'day' | 'week' | 'month';
+  defaultFor: 'random' | 'open_when' | null;
+}
+
+const GROUP_COLS = 'id, name, quota, period, defaultFor:default_for';
+
+export const groupsApi = {
+  mine: async (): Promise<LetterGroup[]> => {
+    const me = await currentUserId();
+    const { data, error } = await supabase.from('letter_groups').select(GROUP_COLS).eq('owner_id', me ?? '').order('id');
+    if (error) throw error;
+    return (data ?? []) as unknown as LetterGroup[];
+  },
+  create: async (g: Pick<LetterGroup, 'name' | 'quota' | 'period'>): Promise<LetterGroup> => {
+    const { data, error } = await supabase.from('letter_groups').insert(g).select(GROUP_COLS).single();
+    if (error) throw error;
+    return data as unknown as LetterGroup;
+  },
+  update: async (id: number, patch: Partial<Pick<LetterGroup, 'name' | 'quota' | 'period'>>): Promise<void> => {
+    const { error } = await supabase.from('letter_groups').update(patch).eq('id', id);
+    if (error) throw error;
+  },
+  remove: async (id: number): Promise<void> => {
+    const { error } = await supabase.from('letter_groups').delete().eq('id', id);
     if (error) throw error;
   },
 };
