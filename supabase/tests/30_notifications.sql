@@ -23,7 +23,7 @@ select recipient = :'her' as for_her, kind, title, body, url from notifications 
 \echo '--- 3b. the sender got pinged once (expect 1 call with the secret header)'
 select url, headers ->> 'x-push-secret' as secret from net.calls;
 
-\echo '--- 4. an edit after sending (expect still 1 notification)'
+\echo '--- 4. an edit after sending is refused (0013), and nothing buzzes (expect 1 error, still 1 notification)'
 set role authenticated;
 select set_config('request.jwt.claim.sub', :'max', false) \gset
 update letters set title = 'a plain one (edited)', published_at = published_at where id = :plain;

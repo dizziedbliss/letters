@@ -10,26 +10,10 @@ insert into letter_bodies (letter_id, doc) values (:l, '[{"type":"paragraph","co
 reset role; update letters set group_id = null where id = :l; set role authenticated; -- her weekly limit is used up by 10_locks
 select set_config('request.jwt.claim.sub', :'max', false) \gset
 
-\echo '--- 1. editing a draft is not "edited" (expect null)'
-update letter_bodies set doc = '[{"type":"paragraph","content":"v2"}]' where letter_id = :l;
-select edited_at is null as not_edited from letters where id = :l;
-
-\echo '--- 2. send, then save the same body again (expect still null), then change it (expect set)'
+\echo '--- 1. send it (sent letters are final since 0013, so no "edited" here)'
 update letters set published_at = now() where id = :l;
-update letter_bodies set doc = doc where letter_id = :l;
-select edited_at is null as not_edited from letters where id = :l;
-update letter_bodies set doc = '[{"type":"paragraph","content":"v3"}]' where letter_id = :l;
-select edited_at is not null as edited from letters where id = :l;
-\echo '--- 2b. settings changes (section, sealed) do not count; a title change does'
-reset role; update letters set edited_at = null where id = :l; set role authenticated;
-select set_config('request.jwt.claim.sub', :'max', false) \gset
-update letters set sealed = true where id = :l;
-update letters set sealed = false, section = 'random' where id = :l;
-select edited_at is null as not_edited from letters where id = :l;
-update letters set title = 'thread me!' where id = :l;
-select edited_at is not null as edited from letters where id = :l;
 
-reset role; update letters set group_id = null where id = :l; set role authenticated; -- 2b's section save re-grouped it
+reset role; update letters set group_id = null where id = :l; set role authenticated; -- her weekly limit is used up by 10_locks
 
 \echo '--- 3. she cannot see or join the thread before opening it (expect 3 errors)'
 select set_config('request.jwt.claim.sub', :'her', false) \gset
@@ -37,8 +21,8 @@ select get_thread(:l);
 select add_reply(:l, 'text', 'sneaky', null);
 select toggle_reaction(:l, null, '💖');
 
-\echo '--- 4. she opens it (sees edited_at), reacts and replies'
-select title, edited_at is not null as shows_edited from open_letter(:l);
+\echo '--- 4. she opens it (not edited), reacts and replies'
+select title, edited_at is null as not_edited from open_letter(:l);
 select toggle_reaction(:l, null, '💖') as on1;
 select add_reply(:l, 'text', '  hiii  ', null) ->> 'body' as reply_body;
 select add_reply(:l, 'gif', null, '{"url":"https://static.klipy.com/x.gif","width":200,"height":150}') ->> 'kind' as reply_kind;

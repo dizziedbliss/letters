@@ -79,7 +79,13 @@ const sameSecret = (given) => {
   return want.length > 0 && got.length === want.length && timingSafeEqual(got, want);
 };
 
+const SETTINGS = ['PUSH_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
+
 export default async function handler(req, res) {
+  // Opening /api/push in a browser: which settings this deploy has (yes/no only, never values)
+  if (req.method === 'GET') {
+    return res.status(200).json(Object.fromEntries(SETTINGS.map((k) => [k, !!process.env[k]])));
+  }
   if (req.method !== 'POST') return res.status(405).end();
   if (!sameSecret(req.headers['x-push-secret'])) {
     return res.status(401).end();

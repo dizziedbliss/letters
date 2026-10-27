@@ -21,6 +21,7 @@ import { DESIGN_WIDTH, newId, themeFor, type Sticker } from '../features/intro/d
 import type { MediaTab } from '../features/media/MediaPicker';
 
 // BlockNote is big; load it only once a letter is open for editing
+const LetterBody = lazy(() => import('../features/letters/LetterBody'));
 const LetterThread = lazy(() => import('../features/letters/thread/LetterThread'));
 const LetterEditor = lazy(() => import('../features/letters/LetterEditor'));
 
@@ -147,7 +148,6 @@ export const WritePage: React.FC = () => {
 
   // ---- edits ----
   const patchLetter = (id: number, patch: Partial<MyLetter>, ms = SAVE_MS) => {
-    if ('title' in patch || 'greeting' in patch) markEdited(id);
     setLetters((ls) => ls?.map((l) => (l.id === id ? { ...l, ...patch } : l)) ?? ls);
     metaPatches.current.set(id, { ...metaPatches.current.get(id), ...patch });
     schedule(
@@ -164,14 +164,7 @@ export const WritePage: React.FC = () => {
     );
   };
 
-  // A sent letter that changes shows "edited" (the database decides for real; this is just the header)
-  const markEdited = (id: number) =>
-    setLetters((ls) => ls?.map((l) => (l.id === id && l.publishedAt && !l.editedAt ? { ...l, editedAt: new Date().toISOString() } : l)) ?? ls);
-
-  const saveBody = (id: number, doc: unknown[]) => {
-    markEdited(id);
-    schedule(`body:${id}`, () => lettersApi.saveBody(id, doc));
-  };
+  const saveBody = (id: number, doc: unknown[]) => schedule(`body:${id}`, () => lettersApi.saveBody(id, doc));
 
   const open = (id: number) => {
     flushAll();
@@ -264,7 +257,6 @@ export const WritePage: React.FC = () => {
     if (!body) return;
     const id = body.id;
     setBody({ ...body, look: next });
-    markEdited(id);
     schedule(`look:${id}`, () => lettersApi.saveLook(id, next), 500);
   };
   const setStickers = (stickers: Sticker[]) => setLook({ ...look, stickers });
@@ -307,7 +299,6 @@ export const WritePage: React.FC = () => {
     if (!body) return;
     const id = body.id;
     setBody({ ...body, banner });
-    markEdited(id);
     schedule(`banner:${id}`, () => lettersApi.saveBanner(id, banner), 400);
   };
 
@@ -440,8 +431,9 @@ export const WritePage: React.FC = () => {
                     &larr; letters
                   </button>
                   <span className="flex-1 min-w-0 truncate font-mono text-[10px] tracking-[0.2em] text-white/40">
-                    {selected.publishedAt ? (selected.editedAt ? 'SENT · EDITED' : 'SENT') : 'DRAFT'} · {unsaved ? 'SAVING…' : 'SAVED'}
+                    {selected.publishedAt ? 'SENT · FINAL' : `DRAFT · ${unsaved ? 'SAVING…' : 'SAVED'}`}
                   </span>
+                  {!selected.publishedAt && (
                   <button
                     type="button"
                     onClick={saveNow}
@@ -452,6 +444,7 @@ export const WritePage: React.FC = () => {
                   >
                     {saveFlash === 'saving' ? 'SAVING…' : saveFlash === 'saved' ? 'SAVED ✓' : 'SAVE'}
                   </button>
+                  )}
                   {!selected.publishedAt && (
                     <button
                       type="button"
@@ -476,7 +469,7 @@ export const WritePage: React.FC = () => {
                 </div>
               </div>
 
-              <QuickBar onAction={quick} hasBanner={!!body?.banner} />
+              {!selected.publishedAt && <QuickBar onAction={quick} hasBanner={!!body?.banner} />}
 
               {showSettings && <div className="lg:hidden max-w-[720px] mx-auto px-5 pt-5 pb-2 border-b border-white/5 bg-[#151515]">{settings}</div>}
 
@@ -486,7 +479,29 @@ export const WritePage: React.FC = () => {
                 onClick={() => setSelectedSticker(null)}
               >
                 {themeFor(look.background).image && <PageBackgroundImage src={themeFor(look.background).image!} />}
-                {body?.id === selected.id ? (
+                {body?.id === selected.id && selected.publishedAt ? (
+                  // Sent letters are final: show exactly what they see (UNSEND in settings to change it)
+                  <LetterCanvas stickers={look.stickers}>
+                    {body.banner && (
+                      <div className="mb-6">
+                        <LetterBanner banner={body.banner} />
+                      </div>
+                    )}
+                    <h1 className="font-heading font-medium text-4xl tracking-tight leading-tight break-words" style={{ color: themeFor(look.background).strong }}>
+                      {selected.title}
+                    </h1>
+                    {selected.greeting && (
+                      <p className="font-body italic text-2xl mt-4" style={{ color: themeFor(look.background).ink }}>
+                        {selected.greeting}
+                      </p>
+                    )}
+                    <div className="mt-6">
+                      <Suspense fallback={<p className="font-body italic opacity-40">...</p>}>
+                        <LetterBody doc={body.doc} ink={themeFor(look.background).ink} />
+                      </Suspense>
+                    </div>
+                  </LetterCanvas>
+                ) : body?.id === selected.id ? (
                   <LetterCanvas
                     stickers={look.stickers}
                     ready
