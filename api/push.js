@@ -6,6 +6,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import webpush from 'web-push';
 
+// The site's own build setting holds the same address, so either name works
+const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+
 const env = (name) => {
   const v = process.env[name];
   if (!v) throw new Error(`missing env ${name}`);
@@ -18,7 +21,9 @@ async function rpc(fn, args = {}) {
   // New-style secret keys (sb_secret_...) go only in apikey; legacy JWT keys also as the bearer
   const headers = { apikey: key, 'Content-Type': 'application/json' };
   if (!key.startsWith('sb_')) headers.Authorization = `Bearer ${key}`;
-  const res = await fetch(`${env('SUPABASE_URL')}/rest/v1/rpc/${fn}`, {
+  const url = supabaseUrl();
+  if (!url) throw new Error('missing env SUPABASE_URL');
+  const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(args),
@@ -84,7 +89,7 @@ const SETTINGS = ['PUSH_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'V
 export default async function handler(req, res) {
   // Opening /api/push in a browser: which settings this deploy has (yes/no only, never values)
   if (req.method === 'GET') {
-    return res.status(200).json(Object.fromEntries(SETTINGS.map((k) => [k, !!process.env[k]])));
+    return res.status(200).json({ ...Object.fromEntries(SETTINGS.map((k) => [k, !!process.env[k]])), SUPABASE_URL: !!supabaseUrl() });
   }
   if (req.method !== 'POST') return res.status(405).end();
   if (!sameSecret(req.headers['x-push-secret'])) {
