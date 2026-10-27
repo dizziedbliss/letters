@@ -7,10 +7,13 @@ import { timingSafeEqual } from 'node:crypto';
 import webpush from 'web-push';
 
 // The site's own build setting holds the same address, so either name works
-const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseUrl = () => clean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+
+// Pasted settings often carry quotes, spaces or a newline; none of these values can contain them
+const clean = (v) => (v || '').trim().replace(/^['"]|['"]$/g, '');
 
 const env = (name) => {
-  const v = process.env[name];
+  const v = clean(process.env[name]);
   if (!v) throw new Error(`missing env ${name}`);
   return v;
 };
@@ -79,8 +82,8 @@ export async function sendBatch(send = webpush.sendNotification) {
 }
 
 const sameSecret = (given) => {
-  const want = Buffer.from(process.env.PUSH_SECRET || '');
-  const got = Buffer.from(String(given || ''));
+  const want = Buffer.from(clean(process.env.PUSH_SECRET));
+  const got = Buffer.from(clean(String(given || '')));
   return want.length > 0 && got.length === want.length && timingSafeEqual(got, want);
 };
 
@@ -97,7 +100,7 @@ export default async function handler(req, res) {
   }
   try {
     webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT || 'https://us.dizziedbliss.lol',
+      clean(process.env.VAPID_SUBJECT) || 'https://us.dizziedbliss.lol',
       env('VAPID_PUBLIC_KEY'),
       env('VAPID_PRIVATE_KEY')
     );
