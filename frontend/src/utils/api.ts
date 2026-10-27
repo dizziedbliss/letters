@@ -2,6 +2,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Cell } from '../components/background/TileGridBackground';
 import { supabase } from '../lib/supabase';
+import { releasePush } from '../lib/push';
 import type { IntroDoc } from '../features/intro/doc';
 import type { Banner, LetterLook } from '../features/letters/banner';
 
@@ -39,7 +40,9 @@ export async function login(code: string): Promise<boolean> {
   return false;
 }
 
-export const logout = () => {
+export const logout = async () => {
+  // before signing out: dropping the subscription needs the session
+  await releasePush().catch(() => {});
   try {
     sessionStorage.removeItem('signed-media-v1'); // the image links cache in lib/media.ts
   } catch {

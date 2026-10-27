@@ -54,16 +54,45 @@ export const LetterSettings: React.FC<LetterSettingsProps> = ({ letter, letters,
       ? { text: `${who.toUpperCase()} READ IT ${new Date(letter.openedAt).toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase()} ♡`, tone: 'bg-brand-cyan/15 text-brand-cyan' }
       : { text: 'SENT · not opened yet', tone: 'bg-white/[0.06] text-white/70' };
 
+  const statusPill = (
+    <div className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 font-mono text-[10px] tracking-wider ${status.tone}`}>
+      <span>{status.text}</span>
+      {letter.publishedAt && !letter.openedAt && (
+        <button type="button" onClick={onUnsend} className="underline underline-offset-4 opacity-80 hover:opacity-100 cursor-pointer">
+          UNSEND
+        </button>
+      )}
+    </div>
+  );
+
+  // Sent letters are final; the only things left to do are unsend (until it's opened) or unlock
+  if (letter.publishedAt) {
+    return (
+      <div className="space-y-4">
+        {statusPill}
+        {letter.rule?.kind === 'manual' &&
+          (letter.unlockedByWriter ? (
+            <p className="font-mono text-[11px] tracking-wider text-brand-cyan">UNLOCKED ✓ {who} can open it</p>
+          ) : (
+            <button
+              type="button"
+              onClick={onUnlock}
+              className="h-9 px-4 rounded-xl bg-brand-cyan text-black font-mono text-[11px] tracking-wider font-bold cursor-pointer hover:shadow-[0_0_16px_rgba(0,216,255,0.5)]"
+            >
+              UNLOCK NOW
+            </button>
+          ))}
+        <p className="font-body text-sm text-white/45">
+          sent letters are final.{' '}
+          {letter.openedAt ? `${who} has it now ♡` : `to change something, unsend it (only until ${who} opens it), fix it, and send it again.`}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 font-mono text-[10px] tracking-wider ${status.tone}`}>
-        <span>{status.text}</span>
-        {letter.publishedAt && !letter.openedAt && (
-          <button type="button" onClick={onUnsend} className="underline underline-offset-4 opacity-80 hover:opacity-100 cursor-pointer">
-            UNSEND
-          </button>
-        )}
-      </div>
+      {statusPill}
 
       <div>
         <FieldLabel>Where it goes</FieldLabel>

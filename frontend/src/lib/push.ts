@@ -72,6 +72,13 @@ export async function disablePush(): Promise<PushState> {
   return 'off';
 }
 
+/** Logging out: this phone stops getting that account's buzzes (it keeps the permission). */
+export async function releasePush() {
+  if (!pushSupported()) return;
+  const sub = await currentSubscription();
+  if (sub) await supabase.rpc('drop_push_subscription', { p_endpoint: sub.endpoint });
+}
+
 /** On each visit: re-save, so the phone's subscription follows whoever is logged in on it. */
 export async function refreshPush() {
   if (!pushSupported() || Notification.permission !== 'granted') return;
